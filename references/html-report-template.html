@@ -1,0 +1,254 @@
+<!doctype html>
+<!--
+  eval-layer cross-subject dashboard template.
+
+  This is a template, not a runnable file. A companion Python generator in
+  the user's project fills the `{{ MARKER }}` placeholders with JSON/HTML
+  strings and writes the result to `evals/reports/framework-comparison.html`.
+
+  HOW TO FILL IT (stdlib only — no Jinja2):
+
+      from pathlib import Path
+      text = Path("html-report-template.html").read_text()
+      for key, value in replacements.items():
+          text = text.replace("{{ " + key + " }}", value)
+      Path("out.html").write_text(text)
+
+  MARKERS — every one is "\u007B\u007B NAME \u007D\u007D" (double-braces + space
+  + NAME + space + double-braces). Documented in make_html_report.py:
+
+    PROJECT_NAME      str   — e.g. "fresh-seo-agent"
+    MODEL_ID          str   — the agent's model id
+    JUDGE_MODEL_ID    str   — the judge's model id
+    TIMESTAMP         str   — ISO8601, UTC
+    N_CASES           int   — total test cases per subject
+    N_SUBJECTS        int   — number of subjects benchmarked
+    TOTAL_COST_USD    str   — e.g. "$0.42" or "n/a" if not tracked
+    LEADERBOARD_ROWS  html  — <tr>...</tr> rows, already sorted desc
+    HEATMAP_HEADER    html  — <th> per subject
+    HEATMAP_ROWS      html  — <tr> per case with one <td> per subject
+    FAILURES_ROWS     html  — <tr> per subject with Success/Agent/Parse/Judge counts
+    BEST_WORST_BLOCKS html  — <details> blocks per subject
+    RADAR_DATA_JSON   json  — {labels:[...], datasets:[{label, data:[...]},...]}
+    LATENCY_DATA_JSON json  — {labels:[subjects], data:[avg_ms,...]}
+    TOKENS_DATA_JSON  json  — {labels:[subjects], input:[...], output:[...]}
+    PASS_THRESHOLD    float — rubric pass threshold (for the heatmap legend)
+
+  The companion generator in the user's project is
+  `evals/make_html_report.py`. Copy `references/html-report-template.html`
+  to `evals/reports/` and run the generator; it writes
+  `evals/reports/framework-comparison.html`.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ PROJECT_NAME }} — eval dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --fg: #1f2328;
+    --muted: #656d76;
+    --border: #d0d7de;
+    --row-alt: #f6f8fa;
+    --bg: #fff;
+    --pass: #1a7f37;
+    --mid: #bf8700;
+    --fail: #cf222e;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 2rem auto;
+    max-width: 1200px;
+    padding: 0 1rem;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  h1 { margin-bottom: 0.25rem; }
+  h2 { margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.35rem; }
+  h3 { margin-top: 1.5rem; }
+  .meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+  .meta code { background: var(--row-alt); padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.92rem; }
+  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+  th { background: var(--row-alt); }
+  tbody tr:nth-child(even) td { background: var(--row-alt); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 1.5rem 0; }
+  .chart-row > div { min-width: 0; }
+  canvas { max-height: 400px; width: 100% !important; }
+  .heatmap { border-collapse: separate; border-spacing: 2px; }
+  .heatmap td {
+    width: 80px; height: 42px; text-align: center; color: #fff;
+    font-weight: 600; border: none; font-variant-numeric: tabular-nums;
+  }
+  .heatmap th { background: var(--row-alt); color: var(--fg); text-align: center; }
+  .legend { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
+  .legend span { display: inline-block; width: 14px; height: 14px; vertical-align: middle;
+                 margin: 0 4px 0 10px; border-radius: 3px; }
+  details { margin: 0.5rem 0; background: var(--row-alt); padding: 0.5rem 0.75rem; border-radius: 6px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details h4 { margin: 0.75rem 0 0.25rem; }
+  pre { background: #fff; border: 1px solid var(--border); padding: 0.75rem;
+        border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  .neg { color: var(--fail); }
+  .pos { color: var(--pass); }
+  .warn-banner {
+    background: #fff8c5; border-left: 4px solid #d4a72c;
+    padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 4px;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+  <h1>{{ PROJECT_NAME }} — cross-subject eval</h1>
+  <div class="meta">
+    Agent model: <code>{{ MODEL_ID }}</code>
+    · Judge model: <code>{{ JUDGE_MODEL_ID }}</code>
+    · Generated: {{ TIMESTAMP }}
+    · Subjects: {{ N_SUBJECTS }}
+    · Cases: {{ N_CASES }}
+    · Estimated cost: {{ TOTAL_COST_USD }}
+  </div>
+
+  <h2>Leaderboard</h2>
+  <table>
+    <thead><tr>
+      <th>Subject</th>
+      <th class="num">Weighted</th>
+      <th class="num">Pass rate</th>
+      <th class="num">Scored</th>
+      <th class="num">Avg latency (ms)</th>
+      <th class="num">In tokens</th>
+      <th class="num">Out tokens</th>
+      <th class="num">Avg tool calls</th>
+      <th>Leniency vs human</th>
+    </tr></thead>
+    <tbody>
+      {{ LEADERBOARD_ROWS }}
+    </tbody>
+  </table>
+
+  <div class="chart-row">
+    <div>
+      <h2>Per-dimension radar</h2>
+      <canvas id="radar"></canvas>
+    </div>
+    <div>
+      <h2>Avg latency</h2>
+      <canvas id="latency"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div>
+      <h2>Token usage (total)</h2>
+      <canvas id="tokens"></canvas>
+    </div>
+    <div>
+      <h2>Failure categories</h2>
+      <table>
+        <thead><tr>
+          <th>Subject</th>
+          <th class="num">Success</th>
+          <th class="num">Agent failure</th>
+          <th class="num">Parse failure</th>
+          <th class="num">Judge failure</th>
+        </tr></thead>
+        <tbody>
+          {{ FAILURES_ROWS }}
+        </tbody>
+      </table>
+      <p class="legend">
+        <em>Agent failure</em>: provider/framework error, no output.
+        <em>Parse failure</em>: output present but schema invalid.
+        <em>Judge failure</em>: output parsed but judge returned no usable scores.
+        A subject that produces brilliant output 10% of the time and crashes
+        90% is worse than one that produces mediocre output 100%.
+      </p>
+    </div>
+  </div>
+
+  <h2>Per-case heatmap (weighted score)</h2>
+  <table class="heatmap">
+    <thead><tr>
+      <th>Case</th>
+      {{ HEATMAP_HEADER }}
+    </tr></thead>
+    <tbody>
+      {{ HEATMAP_ROWS }}
+    </tbody>
+  </table>
+  <p class="legend">
+    Cell value = weighted score on [0, 1]. Pass threshold = {{ PASS_THRESHOLD }}.
+    <span style="background: var(--pass)"></span> pass
+    <span style="background: var(--mid)"></span> borderline
+    <span style="background: var(--fail)"></span> fail
+    <span style="background: #555"></span> no score (agent/parse/judge failure)
+  </p>
+
+  <h2>Best + worst output per subject</h2>
+  <p class="meta">Click to expand. Useful for qualitative comparison when
+     two subjects have similar weighted scores but different failure modes.</p>
+  {{ BEST_WORST_BLOCKS }}
+
+<script>
+const radarData = {{ RADAR_DATA_JSON }};
+new Chart(document.getElementById('radar'), {
+  type: 'radar',
+  data: {
+    labels: radarData.labels,
+    datasets: radarData.datasets.map((ds, i) => ({
+      ...ds,
+      fill: true,
+      backgroundColor: `hsla(${i * 67}, 70%, 50%, 0.12)`,
+      borderColor: `hsl(${i * 67}, 70%, 45%)`,
+      pointBackgroundColor: `hsl(${i * 67}, 70%, 45%)`
+    }))
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'bottom' } },
+    scales: { r: { beginAtZero: true, suggestedMax: 5 } }
+  }
+});
+
+const latencyData = {{ LATENCY_DATA_JSON }};
+new Chart(document.getElementById('latency'), {
+  type: 'bar',
+  data: {
+    labels: latencyData.labels,
+    datasets: [{
+      label: 'Avg latency (ms)',
+      data: latencyData.data,
+      backgroundColor: '#0969da'
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, title: { display: true, text: 'ms' } } }
+  }
+});
+
+const tokensData = {{ TOKENS_DATA_JSON }};
+new Chart(document.getElementById('tokens'), {
+  type: 'bar',
+  data: {
+    labels: tokensData.labels,
+    datasets: [
+      { label: 'Input tokens (total)',  data: tokensData.input,  backgroundColor: '#0969da' },
+      { label: 'Output tokens (total)', data: tokensData.output, backgroundColor: '#1a7f37' }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'bottom' } },
+    scales: {
+      x: { stacked: false },
+      y: { stacked: false, beginAtZero: true }
+    }
+  }
+});
+</script>
+</body>
+</html>
