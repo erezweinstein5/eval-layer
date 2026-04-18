@@ -28,6 +28,7 @@ Add a rubric-based evaluation layer to an existing agent project. Framework-agno
 | [references/judge-robustness.md](references/judge-robustness.md) | JSON extraction helper, retry-once, defensive score aggregation — drop-in snippets |
 | [references/cross-subject-benchmarking.md](references/cross-subject-benchmarking.md) | Multi-subject (model / framework / prompt) comparison flow |
 | [references/html-report-template.html](references/html-report-template.html) | Self-contained Chart.js dashboard — leaderboard, radar, heatmap |
+| [references/interactive-calibration.md](references/interactive-calibration.md) | **Interactive human-grading dialog** for collecting honest `reference_scores` — required for leniency to be meaningful |
 
 ---
 
@@ -118,22 +119,23 @@ pass_threshold: 3.5
 
 At least 10 cases: 3-4 easy, 3-4 medium, 2-3 hard.
 
-**Reference scores are required on at least 3 easy cases** — without them,
-leniency tracking cannot run. Grade them against the rubric (not gut feeling),
-ideally with 2+ independent graders:
+**Reference scores are collected interactively from the user** (step 2f below) —
+do NOT generate them yourself. A Claude-generated reference score against a
+Claude-written `expected_output` makes leniency circular and meaningless.
+
+Leave `reference_scores` as `null` (with a comment explaining how to fill it)
+on 5 of the easy cases. Those are the ones the user will grade in step 2f.
 
 ```yaml
 test_cases:
   - id: "tc-001"
     input: "the exact input to the agent"
     context: "additional context if needed"
-    expected_output: "what a good response looks like"
+    expected_output: "what a good response looks like (a sketch, not ground truth)"
     metadata:
       difficulty: easy
       category: "happy-path"
-    reference_scores:          # human baseline — required on ≥3 easy cases
-      correctness: 4
-      completeness: 4
+    reference_scores: null       # filled in by interactive calibration (step 2f)
 ```
 
 ### 2c. Judge prompt (`evals/prompts/judge.md`)
@@ -166,6 +168,28 @@ The harness should:
 6. Write a per-subject markdown report and raw JSONL (`evals/reports/raw/<subject>.jsonl`) for later aggregation
 
 Keep it simple — one file, no unnecessary abstractions.
+
+### 2f. Interactive human calibration (required before the first eval sweep)
+
+Leniency is only meaningful if `reference_scores` are collected from a human
+grading real agent output. If Claude generates both the references and the
+judge scores, leniency measures LLM-vs-LLM agreement and falsely reads
+near-zero.
+
+After generating the rubric + test cases + harness, but **before** the first
+eval sweep:
+
+1. Run the agent on 5 easy calibration cases with `--no-judge` to populate
+   real agent outputs in `evals/reports/raw/<subject>.jsonl`.
+2. Walk the user through an interactive grading session — one dimension at a
+   time, allowing questions, recording rationale. See
+   [references/interactive-calibration.md](references/interactive-calibration.md)
+   for the dialog template, question-handling patterns, and anti-patterns.
+3. Write `reference_scores` (plus a `reference_metadata` block with provenance)
+   back to `seed.yaml`.
+
+**Never grade on the user's behalf** — ask, don't assume. The whole point of
+references is independent human judgment.
 
 ### 2e. Structured output: Bedrock requires two-stage
 
@@ -239,7 +263,7 @@ Before handing off:
 - [ ] 3-5 dimensions, weights sum to 1.0
 - [ ] Concrete level descriptors per dimension
 - [ ] 2-3 calibration examples in the judge prompt with evidence/suggestion/confidence
-- [ ] ≥3 test cases with `reference_scores` for leniency
+- [ ] ≥5 test cases with `reference_scores` collected **interactively from the user**, not generated (see step 2f)
 - [ ] Harness uses the defensive `parse_judge_response` helper
 - [ ] Harness outputs the 7-field metadata contract
 - [ ] `--framework`, `--test-case`, `-v`, `--trials` flags present
