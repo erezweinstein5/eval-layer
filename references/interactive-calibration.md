@@ -1,21 +1,22 @@
 # Interactive Human Calibration
 
-Leniency is only meaningful if `reference_scores` are produced by a **human grading real agent output** — not by Claude imagining plausible numbers from an `expected_output` sketch. If Claude generates both the references and the judge scores, leniency measures LLM-vs-LLM agreement and will falsely read near-zero.
+**Opt-in only.** The skill's default is to auto-generate `reference_scores` with Claude and tag them `graded_by: claude`. Leniency computed against Claude-graded references is *directional only* — it can catch gross judge drift but cannot detect shared LLM bias between reference and judge. Most users don't need more than that.
 
-This reference describes the interactive calibration flow the skill uses to collect honest human reference scores.
+Run this flow only when the user explicitly asks — e.g., invokes the harness with `--calibrate`, says "I want human-graded references", the project has regulatory / high-stakes requirements for judge bias detection, or leniency stays suspiciously near zero (`|leniency| < 0.05` across runs is a smell for LLM-on-LLM echo).
 
 ---
 
 ## When to run it
 
-After the agent exists and the skill has generated the rubric, test cases, and harness — but **before** the first full eval sweep. The flow:
+After the agent exists, the skill has generated the default (Claude-graded) rubric + test cases + harness, and the user has opted in. The flow:
 
 ```
-1. Skill generates rubric + seed.yaml (reference_scores: null for calibration cases)
-2. Skill asks the user to run the agent on the 5 calibration cases
-3. Skill walks the user through grading each one interactively   ← this file
-4. Skill writes reference_scores back into seed.yaml
-5. First real eval sweep — leniency now meaningful
+1. Skill generates rubric + seed.yaml with Claude-graded reference_scores (graded_by: claude)
+2. User invokes --calibrate (or explicitly asks for human grading)
+3. Skill runs the agent on the 5 calibration cases with --no-judge
+4. Skill walks the user through grading each one interactively   ← this file
+5. Skill overwrites reference_scores in seed.yaml and flips graded_by to "human"
+6. Next eval sweep — leniency is now human-anchored
 ```
 
 ---

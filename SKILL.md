@@ -119,12 +119,18 @@ pass_threshold: 3.5
 
 At least 10 cases: 3-4 easy, 3-4 medium, 2-3 hard.
 
-**Reference scores are collected interactively from the user** (step 2f below) —
-do NOT generate them yourself. A Claude-generated reference score against a
-Claude-written `expected_output` makes leniency circular and meaningless.
+**Reference scores** on ≥3 easy cases enable leniency tracking. Two modes:
 
-Leave `reference_scores` as `null` (with a comment explaining how to fill it)
-on 5 of the easy cases. Those are the ones the user will grade in step 2f.
+- **Default (auto-graded)** — you generate `reference_scores` by applying the
+  rubric to the `expected_output` sketch. Tag with `graded_by: claude` so the
+  source is transparent. Leniency computed against these is *directional only*
+  (it catches gross judge drift but can't detect a judge and reference that
+  share the same LLM bias). Good enough for most users.
+- **Opt-in (human-graded)** — if the user asks for `--calibrate` or says they
+  want high-confidence leniency, follow step 2f.
+
+Do NOT silently generate references without the `graded_by` tag. The user must
+be able to tell at a glance whether leniency is human-anchored or not.
 
 ```yaml
 test_cases:
@@ -135,7 +141,12 @@ test_cases:
     metadata:
       difficulty: easy
       category: "happy-path"
-    reference_scores: null       # filled in by interactive calibration (step 2f)
+    reference_scores:
+      correctness: 4
+      completeness: 4
+    reference_metadata:
+      graded_by: claude        # or "human" after running step 2f
+      graded_at: "2026-04-18T14:23:00Z"
 ```
 
 ### 2c. Judge prompt (`evals/prompts/judge.md`)
@@ -169,27 +180,40 @@ The harness should:
 
 Keep it simple — one file, no unnecessary abstractions.
 
-### 2f. Interactive human calibration (required before the first eval sweep)
+### 2f. Optional: interactive human calibration
 
-Leniency is only meaningful if `reference_scores` are collected from a human
-grading real agent output. If Claude generates both the references and the
-judge scores, leniency measures LLM-vs-LLM agreement and falsely reads
-near-zero.
+**Only run this if the user explicitly asks** — e.g., invokes with
+`--calibrate`, says "I want human-graded references", or the project has
+regulatory / high-stakes requirements for judge bias detection.
 
-After generating the rubric + test cases + harness, but **before** the first
-eval sweep:
+Default mode (step 2b) uses Claude-generated references tagged
+`graded_by: claude`. Leniency computed against those is directional but
+cannot detect judge/reference shared-bias. Most users don't need better.
 
-1. Run the agent on 5 easy calibration cases with `--no-judge` to populate
-   real agent outputs in `evals/reports/raw/<subject>.jsonl`.
+If the user opts in:
+
+1. Run the agent on 5 easy cases with `--no-judge` to produce real agent
+   outputs in `evals/reports/raw/<subject>.jsonl`.
 2. Walk the user through an interactive grading session — one dimension at a
    time, allowing questions, recording rationale. See
    [references/interactive-calibration.md](references/interactive-calibration.md)
-   for the dialog template, question-handling patterns, and anti-patterns.
-3. Write `reference_scores` (plus a `reference_metadata` block with provenance)
-   back to `seed.yaml`.
+   for the dialog template and anti-patterns.
+3. Overwrite `reference_scores` in `seed.yaml` with the human grades and flip
+   `reference_metadata.graded_by` from `claude` to `human`.
 
-**Never grade on the user's behalf** — ask, don't assume. The whole point of
-references is independent human judgment.
+**When grading interactively, never grade on the user's behalf** — ask, don't
+assume.
+
+### 2g. Honest leniency labels in reports
+
+The markdown and HTML reports must display **which mode produced the
+references**. Suggested labels:
+
+- `graded_by: claude` → `"Leniency vs Claude-graded references (directional only)"`
+- `graded_by: human`  → `"Leniency vs human-graded references"`
+
+Never show a bare leniency number without its label — it misleads a reader
+into thinking the signal is stronger than it is.
 
 ### 2e. Structured output: Bedrock requires two-stage
 
@@ -263,7 +287,8 @@ Before handing off:
 - [ ] 3-5 dimensions, weights sum to 1.0
 - [ ] Concrete level descriptors per dimension
 - [ ] 2-3 calibration examples in the judge prompt with evidence/suggestion/confidence
-- [ ] ≥5 test cases with `reference_scores` collected **interactively from the user**, not generated (see step 2f)
+- [ ] ≥3 easy cases with `reference_scores` + `reference_metadata.graded_by` tag (`claude` by default, `human` after `--calibrate`)
+- [ ] Reports label leniency by grading mode (see step 2g)
 - [ ] Harness uses the defensive `parse_judge_response` helper
 - [ ] Harness outputs the 7-field metadata contract
 - [ ] `--framework`, `--test-case`, `-v`, `--trials` flags present
