@@ -1,93 +1,172 @@
-# evals-layer
+# eval-layer
 
+A Claude Code skill that adds a **rubric-based evaluation layer** to any existing agent project. Framework-agnostic — works with PydanticAI, LangGraph, CrewAI, Strands, OpenAI Agents SDK, the raw Anthropic SDK, or anything else that exposes `run(prompt) -> result`.
 
+You bring the agent. The skill gives you:
 
-## Getting started
+1. A scoring **rubric** (3-5 dimensions with concrete level descriptors, not "good" / "bad")
+2. A **test suite** of inputs with ≥3 reference-graded cases (for calibration)
+3. A **judge prompt** for LLM-as-a-judge with 2-3 calibration examples
+4. An **eval harness** that runs your agent on the cases, sends output to the judge, and aggregates:
+   - per-dimension averages
+   - weighted overall score
+   - pass rate
+   - **leniency** vs. the human references (flags if the judge is systematically too strict or too lenient)
+5. A per-subject markdown report and, for multi-subject benchmarks, a self-contained **HTML dashboard** (leaderboard + radar + per-case heatmap + failure-category breakdown).
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Why this exists
 
-## Add your files
+"Vibes-based" evals fail silently. You ship a change, the agent *feels* better, but you have no numbers. This skill produces numbers you can trust — including a judge-calibration signal (`leniency`) so you know when *the judge itself* is drifting, not just the agent.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Two measurements, not one:
 
+- **Weighted score** — how good the output is, per the rubric, on `[0, 1]`
+- **Leniency** — `mean(judge_score − human_reference_score)` on `[-1, +1]`
+  - `abs < 0.10` → well-calibrated
+  - `0.10 – 0.25` → slight bias, monitor
+  - `abs > 0.25` → recalibrate before trusting scores
+
+---
+
+## The 7-field metadata contract
+
+Every framework adapter returns the same shape. This is what makes cross-framework comparison honest:
+
+```python
+{
+    "recommendation": <schema instance or None>,  # agent's structured output
+    "latency_ms":      int,                       # wall-clock including tool execution
+    "tool_calls":      int,                       # count of tool invocations
+    "input_tokens":    int | None,                # summed across turns
+    "output_tokens":   int | None,
+    "model_id":        str,
+    "error":           str | None,
+}
 ```
-cd existing_repo
-git remote add origin https://gitlab.aws.dev/erweinst/evals-layer.git
-git branch -M main
-git push -uf origin main
-```
 
-## Integrate with your tools
+If a framework doesn't expose a field (Strands 0.1.x doesn't expose tokens, for example), pass `None` — don't fabricate. The harness handles `None` defensively throughout.
 
-- [ ] [Set up project integrations](https://gitlab.aws.dev/erweinst/evals-layer/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+---
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+1. In Claude Code, invoke the skill against your project:
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+   ```
+   /eval-layer Add an eval layer to /path/to/your/agent
+   ```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+2. Claude reads the agent, proposes a rubric, and on your confirmation generates:
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+   ```
+   your-project/
+     evals/
+       eval_harness.py
+       rubrics/main.yaml
+       prompts/judge.md
+       test_cases/seed.yaml
+       reports/
+         raw/<subject>.jsonl
+         eval_<subject>_<ts>.md
+         framework-comparison.html   # multi-subject only
+   ```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+3. Smoke-test one case:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+   ```
+   python evals/eval_harness.py --framework <subject> --test-case easy-01 -v
+   ```
 
-## License
-For open source projects, say how it is licensed.
+4. Full run:
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+   ```
+   python evals/eval_harness.py --framework <subject>
+   ```
+
+5. Multi-subject sweep + dashboard:
+
+   ```
+   python evals/eval_harness.py --framework all
+   python evals/make_html_report.py
+   ```
+
+### Required harness flags
+
+Every harness generated by this skill exposes these:
+
+| Flag | Purpose |
+|---|---|
+| `--framework NAME` | which subject to run (or `all`) |
+| `--test-case ID`   | run only one case — essential for debugging adapters |
+| `-v` / `--verbose` | print per-case metadata as it runs |
+| `--trials N`       | run each case N times (pass@k / variance) |
+
+---
+
+## Repository layout
+
+```
+eval-layer/
+├── SKILL.md                                        # entry point — the process Claude follows
+├── references/
+│   ├── rubric-design.md                            # dimension catalog, scales, leniency thresholds, anti-patterns
+│   ├── judge-prompts.md                            # judge prompt template + calibration techniques
+│   ├── judge-robustness.md                         # defensive JSON parse, retry-once, never-drop-a-result
+│   ├── framework-adapters.md                       # copy-paste recipes per framework (w/ the metadata contract)
+│   ├── structured-output-troubleshooting.md        # the three Bedrock Opus errors and the two-stage fix
+│   ├── cross-subject-benchmarking.md               # multi-subject flow (models / frameworks / prompts)
+│   └── html-report-template.html                   # self-contained Chart.js dashboard template
+└── README.md
+```
+
+`SKILL.md` is the top-level recipe (loaded when the skill is invoked). The `references/` files are loaded on demand for the relevant step.
+
+---
+
+## Bedrock gotcha
+
+If the agent targets Claude on Bedrock, the *default* path for structured output is the **two-stage pattern**, not `response_format` / `output_type`. Single-stage structured output fails with three distinct errors on Bedrock Opus 4.x across LangGraph, Strands, and OpenAI Agents SDK:
+
+- **LangGraph** — `"This model does not support assistant message prefill"`
+- **Strands** — `"No valid tool use or tool use input was found in the Bedrock response"`
+- **OpenAI Agents + LiteLLM** — `"minItems values other than 0 or 1 are not supported"`
+
+The fix:
+
+```
+Stage 1: run the agent conversationally — tools enabled, no output_type.
+Stage 2: feed the final text into a fresh structured-output call.
+```
+
+See [`references/structured-output-troubleshooting.md`](references/structured-output-troubleshooting.md).
+
+---
+
+## Validation checklist
+
+Before handing off an eval produced by this skill:
+
+- [ ] 3–5 dimensions, weights sum to 1.0
+- [ ] Concrete level descriptors (not "good"/"bad")
+- [ ] 2–3 calibration examples in the judge prompt
+- [ ] ≥3 test cases with `reference_scores` for leniency
+- [ ] Harness uses the defensive `parse_judge_response` helper
+- [ ] Harness outputs the 7-field metadata contract
+- [ ] `--framework`, `--test-case`, `-v`, `--trials` flags present
+- [ ] Single-case smoke test passes end-to-end
+- [ ] If Bedrock: two-stage structured output is the default
+- [ ] If multi-subject: HTML dashboard renders with all subjects
+
+---
+
+## Installation
+
+This is a Claude Code skill. To use it as your own user-level skill:
+
+```bash
+git clone git@ssh.gitlab.aws.dev:erweinst/evals-layer.git ~/.claude/skills/eval-layer
+```
+
+Then from any Claude Code session: `/eval-layer <your agent path>`.
