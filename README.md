@@ -163,10 +163,10 @@ Before handing off an eval produced by this skill:
 
 ## Installation
 
-This is a Claude Code skill. To use it as your own user-level skill:
+This is a Claude Code skill. To use it as your own user-level skill, clone it into your Claude skills directory:
 
 ```bash
-git clone git@ssh.gitlab.aws.dev:erweinst/evals-layer.git ~/.claude/skills/eval-layer
+git clone <your-fork-url> ~/.claude/skills/eval-layer
 ```
 
 Then from any Claude Code session: `/eval-layer <your agent path>`.
