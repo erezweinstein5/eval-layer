@@ -20,6 +20,18 @@ You bring the agent. The skill gives you:
 
 ---
 
+## Installation
+
+This is a Claude Code skill. To use it as your own user-level skill, clone it into your Claude skills directory:
+
+```bash
+git clone <your-repo-url> ~/.claude/skills/eval-layer
+```
+
+Then from any Claude Code session: `/eval-layer <your agent path>`.
+
+---
+
 ## Why this exists
 
 "Vibes-based" evals fail silently. You ship a change, the agent *feels* better, but you have no numbers. This skill produces numbers you can trust — including a judge-calibration signal (`leniency`) so you know when *the judge itself* is drifting, not just the agent.
@@ -162,15 +174,3 @@ Before handing off an eval produced by this skill:
 - [ ] Single-case smoke test passes end-to-end
 - [ ] If Bedrock: two-stage structured output is the default
 - [ ] If multi-subject: HTML dashboard renders with all subjects
-
----
-
-## Installation
-
-This is a Claude Code skill. To use it as your own user-level skill, clone it into your Claude skills directory:
-
-```bash
-git clone <your-fork-url> ~/.claude/skills/eval-layer
-```
-
-Then from any Claude Code session: `/eval-layer <your agent path>`.
