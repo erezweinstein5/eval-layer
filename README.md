@@ -1,5 +1,9 @@
 # eval-layer
 
+<p align="center">
+  <img src="assets/scale.gif" alt="Pixel-art balance scale tilting back and forth" width="256" />
+</p>
+
 A Claude Code skill that adds a **rubric-based evaluation layer** to any existing agent project. Framework-agnostic — works with PydanticAI, LangGraph, CrewAI, Strands, OpenAI Agents SDK, the raw Anthropic SDK, or anything else that exposes `run(prompt) -> result`.
 
 You bring the agent. The skill gives you:
