@@ -25,7 +25,7 @@ You bring the agent. The skill gives you:
 This is a Claude Code skill. To use it as your own user-level skill, clone it into your Claude skills directory:
 
 ```bash
-git clone <your-repo-url> ~/.claude/skills/eval-layer
+git clone <repo-url> ~/.claude/skills/eval-layer
 ```
 
 Then from any Claude Code session: `/eval-layer <your agent path>`.
