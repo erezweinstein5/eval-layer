@@ -33,6 +33,11 @@
     LATENCY_DATA_JSON json  — {labels:[subjects], data:[avg_ms,...]}
     TOKENS_DATA_JSON  json  — {labels:[subjects], input:[...], output:[...]}
     PASS_THRESHOLD    float — rubric pass threshold (for the heatmap legend)
+    LENIENCY_LABEL    str   — leaderboard column header, chosen by the reference
+                              grading mode (see SKILL.md step 2g):
+                              graded_by: human  → "Leniency vs human-graded references"
+                              graded_by: codex  → "Leniency vs Codex-graded references (directional only)"
+                              graded_by: claude → "Leniency vs Claude-graded references (directional only)"
 
   The companion generator in the user's project is
   `evals/make_html_report.py`. Copy `references/html-report-template.html`
@@ -124,7 +129,7 @@
       <th class="num">In tokens</th>
       <th class="num">Out tokens</th>
       <th class="num">Avg tool calls</th>
-      <th>Leniency vs human</th>
+      <th>{{ LENIENCY_LABEL }}</th>
     </tr></thead>
     <tbody>
       {{ LEADERBOARD_ROWS }}

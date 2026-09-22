@@ -1,6 +1,6 @@
 # Interactive Human Calibration
 
-**Opt-in only.** The skill's default is to auto-generate `reference_scores` with Claude and tag them `graded_by: claude`. Leniency computed against Claude-graded references is *directional only* — it can catch gross judge drift but cannot detect shared LLM bias between reference and judge. Most users don't need more than that.
+**Opt-in only.** The skill's default is to auto-generate `reference_scores` with the active assistant and tag them with its identity (`graded_by: codex`, `claude`, or another identifier). Leniency computed against assistant-graded references is *directional only* — it can catch gross judge drift but cannot detect shared LLM bias between reference and judge. Most users don't need more than that.
 
 Run this flow only when the user explicitly asks — e.g., invokes the harness with `--calibrate`, says "I want human-graded references", the project has regulatory / high-stakes requirements for judge bias detection, or leniency stays suspiciously near zero (`|leniency| < 0.05` across runs is a smell for LLM-on-LLM echo).
 
@@ -8,10 +8,10 @@ Run this flow only when the user explicitly asks — e.g., invokes the harness w
 
 ## When to run it
 
-After the agent exists, the skill has generated the default (Claude-graded) rubric + test cases + harness, and the user has opted in. The flow:
+After the agent exists, the skill has generated the default (assistant-graded) rubric + test cases + harness, and the user has opted in. The flow:
 
 ```
-1. Skill generates rubric + seed.yaml with Claude-graded reference_scores (graded_by: claude)
+1. Skill generates rubric + seed.yaml with assistant-graded reference_scores (tagged with the actual grader)
 2. User invokes --calibrate (or explicitly asks for human grading)
 3. Skill runs the agent on the 5 calibration cases with --no-judge
 4. Skill walks the user through grading each one interactively   ← this file
@@ -39,7 +39,7 @@ All 5 should come from the **easy** pool. Hard/ambiguous cases are where humans 
 
 **Real agent output on the specific case, not the `expected_output` sketch.**
 
-The `expected_output` field in `seed.yaml` is a *hint* for what a strong brief might look like. It's written by Claude during generation. Grading against it is circular.
+The `expected_output` field in `seed.yaml` is a *hint* for what a strong brief might look like. It's written by the assistant during generation. Grading against it is circular.
 
 So the calibration flow must run the agent first:
 
@@ -55,7 +55,7 @@ These runs populate `evals/reports/raw/<framework>.jsonl` with the real agent ou
 
 ## The interactive dialog
 
-When the user invokes `/eval-layer --calibrate` (or Claude decides calibration is next), the session loops case × dimension:
+When the user invokes `/eval-layer --calibrate` (or explicitly asks for human grading), the session loops case × dimension:
 
 ### Per-case opening
 
@@ -105,12 +105,12 @@ Your score? (1-5, or ask a question)
 
 The session is a dialog, not a form. Expected patterns:
 
-- **"What's the difference between 3 and 4 here?"** → Claude quotes the two descriptors and points to specific parts of the agent output that lean either way.
-- **"Is the outline length supposed to affect this dimension?"** → Claude clarifies: outline length is `outline_actionability`, not `keyword_relevance`.
-- **"What does 'synthesizes trend + SERP' mean?"** → Claude explains in the context of the specific rising_queries.
-- **"Can I go back and change easy-01 keyword_relevance?"** → Yes; Claude re-opens that slot.
+- **"What's the difference between 3 and 4 here?"** → The assistant quotes the two descriptors and points to specific parts of the agent output that lean either way.
+- **"Is the outline length supposed to affect this dimension?"** → The assistant clarifies: outline length is `outline_actionability`, not `keyword_relevance`.
+- **"What does 'synthesizes trend + SERP' mean?"** → The assistant explains in the context of the specific rising_queries.
+- **"Can I go back and change easy-01 keyword_relevance?"** → Yes; the assistant re-opens that slot.
 
-Claude must **not** suggest a score unless the user explicitly asks "what would you score this?" — and even then, frame it as *one possible interpretation*, not the answer. The whole point is independent human judgment.
+The assistant must **not** suggest a score unless the user explicitly asks "what would you score this?" — and even then, frame it as *one possible interpretation*, not the answer. The whole point is independent human judgment.
 
 ### Per-dimension confirmation
 
@@ -181,8 +181,8 @@ The `reference_metadata` block makes it possible to:
 
 ## Anti-patterns
 
-1. **Claude grades on the user's behalf.** Defeats the purpose. Ask; don't assume.
-2. **Grading before running the agent.** You'd be grading `expected_output`, which Claude wrote. Circular.
+1. **The assistant grades on the user's behalf.** Defeats the purpose. Ask; don't assume.
+2. **Grading before running the agent.** You'd be grading `expected_output`, which the assistant wrote. Circular.
 3. **Using hard cases for reference.** Human inter-rater disagreement on hard cases is high — that uncertainty leaks into the leniency signal.
 4. **Skipping the "why" prompt every time.** At least 2-3 per session; helps detect rubric ambiguity for future you.
 5. **Grading more than 8 cases in one sitting.** Fatigue makes late scores inconsistent. Cap sessions at 5-6.

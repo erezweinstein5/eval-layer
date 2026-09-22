@@ -2,7 +2,7 @@
 
 ## Principles
 
-1. **Dimensions must be observable** — answerable from the output alone. Not "did the agent use the best algorithm?" but "did the agent complete the task in ≤N steps?"
+1. **Dimensions must be observable** — answerable from the output and recorded evidence (diffs, independent checks, and traces for coding tasks). Not "did the agent use the best algorithm?" but "did the agent complete the task in ≤N steps?"
 2. **Level descriptors must be concrete** — a judge should match output against the descriptor without guessing. Abstract words like "good" cause score compression.
 3. **Adjacent levels must be distinguishable** — if you can't write two clearly different example outputs for levels 3 and 4, the scale is too fine.
 4. **Use 3-point scales for binary-ish things** (safety, format compliance). Use 5-point for nuanced things (quality, depth).

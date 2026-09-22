@@ -12,6 +12,7 @@ a temperature, or a fine-tune — and compare them on the same rubric.
 - "Is PydanticAI or LangGraph faster / more reliable on Bedrock Opus?"
 - "Does the new system prompt actually improve the output, or am I imagining it?"
 - "What does latency cost us per quality point?"
+- "Does this Codex skill or AGENTS.md change improve repository task completion?"
 
 **Stay single-subject when** you're iterating on *one* agent's quality. Adding
 a second subject triples the harness surface area — don't pay that cost
@@ -75,7 +76,7 @@ varies between runs.
    *is* the prompt. Store it in `common/prompts.py` and import it from each
    adapter.
 2. **Model + temperature**: hold constant unless the subject *is* the model.
-   Pin `temperature=0` (or a fixed non-zero if you're measuring variance).
+   Pin sampling settings when the runtime exposes them; do not invent a temperature flag for Codex.
 3. **Tool implementations**: the exact same Python functions, not
    framework-specific reimplementations. Share via `src/tools.py`.
 4. **Test cases**: all subjects run the full seed set in the same order. Do
@@ -83,7 +84,8 @@ varies between runs.
 5. **Trials per case**: same `--trials N` across all subjects.
 6. **Judge**: one judge model, one judge prompt, one rubric. The judge is a
    constant, not a variable.
-7. **Seed / determinism**: if your agent has any randomness (sampling,
+7. **Coding fixtures**: start every subject/case/trial from the same fixture commit and dependency state. Freeze acceptance checks outside the agent-writable workspace. Record CLI version, model, instructions, skills, tools, and sandbox settings. See [codex.md](codex.md).
+8. **Seed / determinism**: if your agent has any randomness (sampling,
    retrieval), seed it so runs are reproducible.
 
 A useful sanity check: run the *same* subject twice as
@@ -137,8 +139,7 @@ scores on hover — the reader will want to drill in.
    dependencies to `pyproject.toml`.
 4. **Smoke-test one case end-to-end**:
    `python eval_harness.py --framework <new> --test-case easy-01 -v`.
-   Confirm recommendation parses, tool_calls > 0, tokens populated, judge
-   scores come back.
+   Confirm recommendation parses, tool counts match available events, and tokens are populated when exposed. Zero tool calls can be valid. With `--no-judge`, expect `judge: null`; otherwise verify judge scores.
 5. **Run the full suite and re-render the dashboard**:
    `python eval_harness.py --framework all` → `python make_html_report.py`.
    Verify the new subject appears in the leaderboard, the radar, and the
