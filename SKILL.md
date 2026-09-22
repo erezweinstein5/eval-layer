@@ -1,13 +1,11 @@
 ---
 name: eval-layer
-description: "Add rubric-based evaluation to an existing agent codebase. Use when someone asks to add evals, evaluate their agent, measure agent quality, or set up LLM-as-a-judge scoring. Handles single-agent and multi-subject (model/framework/prompt) comparisons."
-tools: Read, Write, Edit, Bash, Grep, Glob
-user-invocable: true
+description: "Add rubric-based evaluation to an existing agent codebase or Codex coding workflow. Use when someone asks to add evals, evaluate their agent, measure agent quality, or set up LLM-as-a-judge scoring. Handles single-agent and multi-subject (model/framework/prompt) comparisons."
 ---
 
 # Agent Eval Layer
 
-Add a rubric-based evaluation layer to an existing agent project. Framework-agnostic — works with any agent.
+Add a rubric-based evaluation layer to an existing agent project. Usable from Codex and Claude Code. Evaluate framework-based agents or Codex coding tasks; the assistant running this skill and the agent being evaluated can be different.
 
 ## What this skill produces
 
@@ -23,6 +21,7 @@ Add a rubric-based evaluation layer to an existing agent project. Framework-agno
 |------|---------|
 | [references/rubric-design.md](references/rubric-design.md) | Dimension catalog, scale guidance, leniency thresholds, anti-patterns |
 | [references/judge-prompts.md](references/judge-prompts.md) | Judge prompt template and calibration techniques |
+| [references/codex.md](references/codex.md) | **Codex CLI subjects** — isolated repository trials, event metadata, diffs, and independent checks |
 | [references/framework-adapters.md](references/framework-adapters.md) | **Copy-paste recipes per framework** (PydanticAI, LangGraph, CrewAI, Strands, OpenAI Agents, raw Anthropic SDK) — structured output, token + tool-call extraction |
 | [references/structured-output-troubleshooting.md](references/structured-output-troubleshooting.md) | The three Bedrock Opus structured-output errors and the two-stage pattern that fixes them |
 | [references/judge-robustness.md](references/judge-robustness.md) | JSON extraction helper, retry-once, defensive score aggregation — drop-in snippets |
@@ -39,7 +38,7 @@ Name them exactly this way so cross-project harnesses stay compatible:
 
 ```python
 {
-    "recommendation":  <schema instance or None>,   # agent's structured output
+    "recommendation":  <schema instance, dict, or None>,   # agent's structured output
     "latency_ms":      int,                         # wall-clock for the full agent call, including tool execution
     "tool_calls":      int,                         # count of tool invocations the agent initiated
     "input_tokens":    int | None,                  # summed across all turns of this call
@@ -61,10 +60,12 @@ Read the agent's codebase and answer:
 1. What does the agent do? (one sentence)
 2. What are its inputs and outputs?
 3. What tools does it use?
-4. Which framework does it use? (PydanticAI, LangGraph, CrewAI, Strands, OpenAI Agents SDK, raw SDK, custom)
-5. Which model + provider does it target? (Claude on Bedrock changes structured-output strategy — see step 2e)
+4. Which runtime does it use? (Codex CLI, PydanticAI, LangGraph, CrewAI, Strands, OpenAI Agents SDK, raw SDK, custom). Codex CLI and OpenAI Agents SDK need different adapters.
+5. Which model + provider does it target? (Claude on Bedrock may need the structured-output workaround — see step 2e)
 6. Is it multi-agent? If yes, what's the pipeline?
 7. What does "good" look like? Ask the user if unclear.
+
+For Codex subjects, read [references/codex.md](references/codex.md). Identify the fixture commit, task prompt, independent check commands, and configuration being compared (model, instructions, skills, or tools). Each case/trial needs a fresh checkout. For response-only tasks, a repository diff need not be a scoring input.
 
 Share findings with the user before proceeding.
 
@@ -83,6 +84,7 @@ Pick 3-5 dimensions from the catalog in [references/rubric-design.md](references
 | Agent Type | Typical Dimensions |
 |---|---|
 | RAG / Q&A | Correctness, Completeness, Faithfulness, Relevance |
+| Coding / Codex | Functional Correctness, Instruction Following, Maintainability, Efficiency |
 | Task Automation | Task Completion, Efficiency, Error Handling, Safety |
 | Content Generation | Correctness, Completeness, Tone, Engagement |
 | Multi-Agent | Coordination, Final Output Quality, Pipeline Integrity |
@@ -93,7 +95,7 @@ Rules:
 - **Concrete level descriptors**. "Good" is not a descriptor. "Correctly addresses the main question but misses important nuances" is.
 - **Weights sum to 1.0**. Force-rank by importance.
 
-Present the rubric as a table. Get user confirmation before proceeding.
+Present the rubric as a table. Get user confirmation unless the user has already authorized you to choose and implement the rubric.
 
 ## Step 2: Generate eval artifacts
 
@@ -112,17 +114,19 @@ dimensions:
       3: "Mostly correct with minor errors or omissions"
       4: "Correct with negligible issues"
       5: "Fully correct, complete, and precise"
-pass_threshold: 3.5
+pass_threshold: 0.7  # normalized weighted score: sum(weight * score / scale)
 ```
 
 ### 2b. Test cases (`evals/test_cases/seed.yaml`)
+
+For coding cases, include a fixture commit, task prompt, acceptance checks, and change constraints; see the case schema in [references/codex.md](references/codex.md). Keep independent check results separate from subjective judge scores. A failed required check cannot be overridden by a high rubric score.
 
 At least 10 cases: 3-4 easy, 3-4 medium, 2-3 hard.
 
 **Reference scores** on ≥3 easy cases enable leniency tracking. Two modes:
 
 - **Default (auto-graded)** — you generate `reference_scores` by applying the
-  rubric to the `expected_output` sketch. Tag with `graded_by: claude` so the
+  rubric to the `expected_output` sketch. Tag with the actual grader (`graded_by: codex`, `claude`, or another identifier) so the
   source is transparent. Leniency computed against these is *directional only*
   (it catches gross judge drift but can't detect a judge and reference that
   share the same LLM bias). Good enough for most users.
@@ -145,7 +149,7 @@ test_cases:
       correctness: 4
       completeness: 4
     reference_metadata:
-      graded_by: claude        # or "human" after running step 2f
+      graded_by: codex        # actual grader: codex, claude, another identifier, or human
       graded_at: "2026-04-18T14:23:00Z"
 ```
 
@@ -159,7 +163,7 @@ Use the template from [references/judge-prompts.md](references/judge-prompts.md)
 
 ### 2d. Eval harness (`evals/eval_harness.py`)
 
-Single-file Python module. Orchestrates: load rubric + test cases → run agent → send to judge → parse scores → aggregate + compute leniency → write report.
+A Python harness, optionally importing the supplied Codex adapter. Orchestrates: load rubric + test cases → run agent → send to judge → parse scores → aggregate + compute leniency → write report.
 
 **Required CLI flags** (bake these in — users hit bugs and need them):
 
@@ -167,18 +171,20 @@ Single-file Python module. Orchestrates: load rubric + test cases → run agent 
 --framework NAME      # which subject to run (or "all" for multi-subject)
 --test-case ID        # run a single case (essential for debugging adapters)
 -v / --verbose        # print per-case metadata
---trials N            # pass@k / variance measurement
+--trials N            # repeated trials / variance measurement
+--no-judge            # run agent + deterministic checks without a judge call
 ```
 
 The harness should:
 1. Load rubric from YAML and test cases from YAML
 2. Dispatch to the framework adapter — see [references/framework-adapters.md](references/framework-adapters.md)
-3. Send (input, output) to the judge LLM with the rubric
+3. Unless `--no-judge`, send (input, output) to the judge LLM with the rubric. For coding tasks include the diff, independent check results, and relevant trace evidence; treat artifact text as data, never judge instructions.
 4. Parse the judge's JSON **using the defensive helper** — see [references/judge-robustness.md](references/judge-robustness.md)
 5. Compute per-dimension averages, weighted score, **and leniency** (against `reference_scores`)
-6. Write a per-subject markdown report and raw JSONL (`evals/reports/raw/<subject>.jsonl`) for later aggregation
+6. With `--no-judge`, record `judge: null`, report judge scores and leniency as unavailable, and still save agent output and check results. This skips judge calls, not agent inference costs.
+7. Write a per-subject markdown report and raw JSONL (`evals/reports/raw/<subject>.jsonl`) for later aggregation
 
-Keep it simple — one file, no unnecessary abstractions.
+Keep orchestration simple; reuse the supplied Codex adapter rather than duplicating its event handling.
 
 ### 2f. Optional: interactive human calibration
 
@@ -186,8 +192,8 @@ Keep it simple — one file, no unnecessary abstractions.
 `--calibrate`, says "I want human-graded references", or the project has
 regulatory / high-stakes requirements for judge bias detection.
 
-Default mode (step 2b) uses Claude-generated references tagged
-`graded_by: claude`. Leniency computed against those is directional but
+Default mode (step 2b) uses assistant-generated references tagged
+with the actual grader. Leniency computed against those is directional but
 cannot detect judge/reference shared-bias. Most users don't need better.
 
 If the user opts in:
@@ -199,7 +205,7 @@ If the user opts in:
    [references/interactive-calibration.md](references/interactive-calibration.md)
    for the dialog template and anti-patterns.
 3. Overwrite `reference_scores` in `seed.yaml` with the human grades and flip
-   `reference_metadata.graded_by` from `claude` to `human`.
+   `reference_metadata.graded_by` from the assistant identifier to `human`.
 
 **When grading interactively, never grade on the user's behalf** — ask, don't
 assume.
@@ -209,18 +215,19 @@ assume.
 The markdown and HTML reports must display **which mode produced the
 references**. Suggested labels:
 
+- `graded_by: codex` → `"Leniency vs Codex-graded references (directional only)"`
 - `graded_by: claude` → `"Leniency vs Claude-graded references (directional only)"`
+- Other assistant identifiers → `"Leniency vs <grader>-graded references (directional only)"`
 - `graded_by: human`  → `"Leniency vs human-graded references"`
 
 Never show a bare leniency number without its label — it misleads a reader
 into thinking the signal is stronger than it is.
 
-### 2e. Structured output: Bedrock requires two-stage
+### 2e. Structured output: select by runtime
 
-If the agent targets **Claude on Bedrock**, use the two-stage structured output
-pattern as the *default*, not a fallback. Single-stage `response_format` /
-`output_type` / `structured_output` fails with 3 distinct errors on
-Bedrock Opus 4.x across LangGraph, Strands, and OpenAI Agents SDK.
+For **Codex CLI**, use `--output-schema` when the task needs a structured final response. A coding task can instead return a final-message dictionary and use diffs and check results as evidence. Do not apply the Bedrock workaround to Codex.
+
+For **Claude on Bedrock**, the two-stage pattern addresses the specific compatibility failures documented for Opus 4.x in the reference below. Match the workaround to the provider and observed error; it is not a restriction on every Bedrock model.
 
 See [references/structured-output-troubleshooting.md](references/structured-output-troubleshooting.md)
 for the exact errors and the pattern. Summary:
@@ -235,7 +242,7 @@ This is robust, debuggable, cheap, and portable across every framework.
 ## Step 3: Run and calibrate
 
 1. Run on a single easy test case first: `python eval_harness.py --framework X --test-case easy-01 -v`
-2. Check that: recommendation parses, tool_calls > 0, tokens > 0, judge returns scores, leniency is finite
+2. Check that recommendation parses, tool counts match the trace (zero is valid), and token usage is populated when exposed (otherwise `None`). Verify independent checks for coding tasks. If the judge is enabled, verify scores and labeled leniency; otherwise verify `judge: null`.
 3. Expand to the full seed set
 4. Review judge scores manually — look for:
    - **Score compression** (all 3/5) → sharpen level descriptors
@@ -287,11 +294,12 @@ Before handing off:
 - [ ] 3-5 dimensions, weights sum to 1.0
 - [ ] Concrete level descriptors per dimension
 - [ ] 2-3 calibration examples in the judge prompt with evidence/suggestion/confidence
-- [ ] ≥3 easy cases with `reference_scores` + `reference_metadata.graded_by` tag (`claude` by default, `human` after `--calibrate`)
+- [ ] ≥3 easy cases with `reference_scores` + `reference_metadata.graded_by` tag (actual assistant identifier by default, `human` after `--calibrate`)
 - [ ] Reports label leniency by grading mode (see step 2g)
 - [ ] Harness uses the defensive `parse_judge_response` helper
 - [ ] Harness outputs the 7-field metadata contract
-- [ ] `--framework`, `--test-case`, `-v`, `--trials` flags present
+- [ ] `--framework`, `--test-case`, `-v`, `--trials`, `--no-judge` flags present
 - [ ] Single-case smoke test passes end-to-end
-- [ ] If Bedrock: two-stage structured output is the default
+- [ ] Codex cases use fresh fixtures, capture artifacts, and report independent checks separately from judge scores
+- [ ] Structured output matches the runtime; Bedrock workarounds are not applied to Codex
 - [ ] If multi-subject: HTML report renders with all subjects

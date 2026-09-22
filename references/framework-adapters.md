@@ -14,11 +14,16 @@ Every adapter must return an object with at minimum:
     "tool_calls": int,
     "input_tokens": int | None,
     "output_tokens": int | None,
+    "model_id": str,
     "error": str | None,
 }
 ```
 
 ---
+
+## Codex CLI
+
+Use [codex.md](codex.md) for the subprocess adapter, event accounting, and repository-based evaluation. Codex CLI runs coding tasks and exposes an event stream; it is a separate subject from the OpenAI Agents SDK recipe below. Preserve the seven metadata fields and store diffs/checks in the enclosing result row.
 
 ## PydanticAI
 
