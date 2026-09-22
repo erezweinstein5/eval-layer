@@ -66,6 +66,38 @@ def judge_with_retry(render_prompt, max_retries: int = 1) -> dict:
     return parsed  # final failure, tagged with {"error": "parse_failed"}
 ```
 
+## Validate the judge schema before aggregating
+
+`parse_judge_response` only proves the text was JSON. Check the shape next —
+the judge prompt (`references/judge-prompts.md`) is required to emit
+`{"scores": {dim: int}, "details": {dim: {...}}, "overall_reasoning": str}`:
+
+```python
+VALID_CONFIDENCE = {"high", "medium", "low"}
+
+
+def validate_judge(parsed: dict[str, Any], dims: list[str]) -> dict[str, Any]:
+    """Return `parsed` unchanged if well-formed, else a tagged error dict."""
+    if "error" in parsed:
+        return parsed
+    scores = parsed.get("scores")
+    if not isinstance(scores, dict):
+        return {"error": "schema_failed", "reason": "missing scores dict", "raw": parsed}
+    missing = [d for d in dims if not isinstance(scores.get(d), int)]
+    if missing:
+        return {"error": "schema_failed", "reason": f"missing/non-int dims: {missing}", "raw": parsed}
+    details = parsed.get("details") or {}
+    bad_conf = [d for d in dims if (details.get(d) or {}).get("confidence") not in VALID_CONFIDENCE]
+    if bad_conf:
+        return {"error": "schema_failed", "reason": f"bad confidence on: {bad_conf}", "raw": parsed}
+    return parsed
+```
+
+A judge response missing a dimension is an **incomplete evaluation**, not a
+partial one. Do not score the dimensions that did arrive and renormalize the
+weights — that silently inflates the weighted score. Tag it `schema_failed`
+and count it under "Judge failure" in the report.
+
 ## Never drop a result
 
 Every row in your raw JSONL must have a `judge` field, even when the judge
