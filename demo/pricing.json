@@ -1,0 +1,22 @@
+{
+  "jev": {
+    "model": "jev-1.13.0",
+    "input_usd_per_million": 0.042,
+    "output_usd_per_million": 0,
+    "source": "https://docs.typesafe.ai/models",
+    "verified_at": "2026-09-23",
+    "note": "Public list-price estimate; output tokens are free."
+  },
+  "llm": {
+    "model": "openai.gpt-oss-120b",
+    "input_usd_per_million": 0.15,
+    "output_usd_per_million": 0.6,
+    "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrock/20260922212139/us-east-2/index.json",
+    "verified_at": "2026-09-23",
+    "region": "us-east-2",
+    "tier": "standard",
+    "input_sku": "NXWGXZVPNCPMRFJ9",
+    "output_sku": "B9XSU7MTJS4S99KS",
+    "note": "AWS Bedrock Mantle standard list-price estimate; excludes account discounts."
+  }
+}

@@ -2,6 +2,8 @@
 
 This file is for Codex, Claude Code, and other assistant sessions working **on** the `eval-layer` skill. Sessions *using* the skill load `SKILL.md` directly — don't duplicate that content here.
 
+The primary product is a context-grounded eval layer generated for the user's agent, executable without the demo UI. Keep customer-support fixtures and scenario contracts scoped to the example; derive cases and source authority anew for each target agent. Jev and LLM judges consume the same saved execution evidence when compared.
+
 ---
 
 ## Load-bearing invariants (change these carefully)
@@ -26,7 +28,7 @@ Appears in all of these files — if you change the shape, update **all** of the
 
 ### Required CLI flags on generated harnesses
 
-`--framework`, `--test-case`, `-v`/`--verbose`, `--trials`, `--no-judge`. Baked into `SKILL.md` step 2d. Don't drop one without updating the skill's validation checklist too.
+`--framework`, `--test-case`, `-v`/`--verbose`, `--trials`, `--no-judge`, `--judge-backend`, `--judge-model`. Baked into `SKILL.md` step 2d. Don't drop one without updating the skill's validation checklist too.
 
 ### Leniency thresholds
 
@@ -38,7 +40,7 @@ Appears in all of these files — if you change the shape, update **all** of the
 
 Validate skill metadata with the skill-creator validator when available. Check relative links and run `git diff --check`.
 
-For Codex adapter changes, run `python3 -m unittest discover -s tests -v`. These tests use a fake CLI and require no model credentials. Check success, event accounting, missing usage, malformed output, failures, and timeout behavior. Keep tests independent of a particular locally installed Codex model.
+For adapter or shared judge changes, run `python3 -m unittest discover -s tests -v`. These tests use a fake CLI or mocked Jev HTTP transport and require no model credentials. Judge tests cover fractional mixed-scale scores, nonfinite/out-of-range values, missing dimensions, retries, skipped judges, and saved-output comparisons. Check success, event accounting, missing usage, malformed output, failures, and timeout behavior. Keep tests independent of a particular locally installed Codex model.
 
 When workflow guidance changes, exercise it in a fresh temporary agent fixture: generate the rubric, cases, judge prompt, and harness; parse YAML; compile Python; and run a case with `--no-judge`. For multi-subject changes, run two variants and verify raw result rows and report generation. A bounded offline smoke test may use one case per subject; the generated production seed suite still follows SKILL.md coverage requirements. Mock the target agent when only checking harness wiring and label the result as a mock run. Live model evaluation is separate; do not describe offline checks as live quality validation.
 

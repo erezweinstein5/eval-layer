@@ -162,12 +162,14 @@ If leniency exceeds ±0.25 across 2+ consecutive eval runs:
 
 ### Explainability Fields
 
-The judge prompt requests structured evidence for each score:
+The `llm` judge prompt requests structured evidence for each score:
 - **evidence**: 1-3 concrete observations from the output (not vague summaries)
 - **suggestion**: What would improve the score by one level
 - **confidence**: "high" / "medium" / "low" — how clearly the output maps to a rubric level
 
 Low-confidence scores warrant manual review. If >30% of scores are low-confidence, the rubric's level descriptors may need sharpening.
+
+For Jev, ordered descriptors become Score criteria. Preserve fractional scores after the `raw_score + 1` mapping. Confidence is numeric and explanations are unavailable; do not apply the LLM confidence labels or fabricate explanation fields. See [jev.md](jev.md).
 
 ## Validation Checklist
 
@@ -175,7 +177,7 @@ Low-confidence scores warrant manual review. If >30% of scores are low-confidenc
 - [ ] Concrete level descriptors (not "good/bad")
 - [ ] Adjacent levels distinguishable
 - [ ] Weights sum to 1.0
-- [ ] Pass threshold set (typically 3.5/5)
-- [ ] 2-3 calibration examples written
+- [ ] Pass threshold set in normalized units (e.g. 0.7 for a 3.5/5 criterion)
+- [ ] LLM calibration examples written; Jev criteria validated on separate labeled outputs
 - [ ] Reference scores on 3+ test cases (for leniency tracking)
-- [ ] Explainability fields in judge output format (evidence, suggestion, confidence)
+- [ ] Backend-appropriate explanation availability and confidence fields

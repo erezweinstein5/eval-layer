@@ -234,6 +234,10 @@ writing evidence. Report `judge: null`, `judge_status: "skipped"`, and null judg
 invented grades. Judging is optional for deterministic coding acceptance; enable
 it only for rubric dimensions that need qualitative assessment.
 
+Jev can judge these same Codex results: select `--judge-backend jev` and an explicit
+`--judge-model`, or replay the saved outputs without rerunning Codex. Keep judge
+usage and confidence separate from the seven agent fields. See [jev.md](jev.md).
+
 ## Local validation without paid calls
 
 From this skill directory:

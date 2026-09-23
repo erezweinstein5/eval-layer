@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f3f6fb">
+  <title>Eval layer · Judge workbench</title>
+  <style>
+    :root{--paper:#fff;--surface:#f3f6fb;--navy:#162744;--muted:#586b86;--line:#dce4ef;--cobalt:#2455e6;--blue-light:#edf2ff;--purple:#75609b;--purple-light:#f3eef9;--green:#18664f;--green-light:#eaf6f0;--amber:#805319;--amber-light:#fff4df;--red:#a32e41;--red-light:#fff0f2;--radius:10px;--rail:224px}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--surface);color:var(--navy);font-family:"Avenir Next","Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.5}
+    button,input,textarea,select{font:inherit}
+    button,a,input,textarea,select{-webkit-tap-highlight-color:transparent}
+    button{cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.48}
+    button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #5280ff;outline-offset:3px}
+    a{color:var(--cobalt)}
+    h1,h2,h3,p{margin:0}
+    h1{font-size:30px;line-height:1.2;letter-spacing:-1px;font-weight:650}
+    h2{font-size:18px;letter-spacing:-.35px;font-weight:650}
+    h3{font-size:14px;font-weight:650}
+    p{max-width:78ch}
+    [hidden]{display:none!important}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .skip{position:fixed;top:-80px;left:16px;z-index:100;background:white;padding:12px 20px;border:2px solid var(--cobalt)}
+    .skip:focus{top:12px}
+    .rail{position:fixed;inset:0 auto 0 0;width:var(--rail);background:#f9fbff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:30px 18px 20px;z-index:15}
+    .brand{display:flex;align-items:center;gap:10px;font-size:21px;font-weight:700;letter-spacing:-.6px;padding:0 10px}
+    .brand-mark{display:grid;grid-template-columns:repeat(3,5px);align-items:end;gap:3px;height:25px;width:28px}
+    .brand-mark i{display:block;background:var(--cobalt);border-radius:2px;height:16px}
+    .brand-mark i:nth-child(2){height:25px}.brand-mark i:nth-child(3){height:21px;background:var(--purple)}
+    .rail-caption{color:var(--muted);font-size:12px;margin:6px 0 34px 10px}
+    .workflow{display:flex;flex-direction:column;gap:7px}
+    .workflow button{display:flex;align-items:center;gap:12px;width:100%;background:none;border:1px solid transparent;color:var(--muted);border-radius:8px;text-align:left;padding:12px 10px}
+    .workflow button:hover{background:#edf2fa}
+    .workflow button[aria-selected="true"]{background:var(--blue-light);color:#163db0;border-color:#d7e1ff;font-weight:650}
+    .step-number{display:grid;place-items:center;flex:0 0 26px;height:26px;border:1px solid var(--line);border-radius:7px;background:var(--paper);font-size:12px}
+    .workflow button[aria-selected="true"] .step-number{background:var(--cobalt);border-color:var(--cobalt);color:white}
+    .step-name{display:block}.step-detail{display:block;font-size:11px;font-weight:400;margin-top:1px}
+    .rail-bottom{margin-top:auto;padding:28px 10px 0}
+    .rail-bottom h3{margin-bottom:12px;font-size:12px;color:var(--muted)}
+    .credential{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin:9px 0}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:#8795a8;display:inline-block;margin-right:5px}
+    .status-dot.ready{background:var(--green)}.status-dot.missing{background:#bb7b24}
+    .rail-note{font-size:11px;color:var(--muted);margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
+    .workspace{margin-left:var(--rail);min-height:100vh}
+    .topbar{min-height:65px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 34px}
+    .breadcrumb{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:10px}.breadcrumb strong{font-weight:500;color:var(--navy)}
+    .top-actions{display:flex;align-items:center;gap:14px}
+    .connection{font-size:11px;color:var(--muted);white-space:nowrap}
+    .export{font-size:12px;text-decoration:none;color:var(--navy);display:flex;align-items:center;gap:6px}
+    .snapshot-mode .credential,.snapshot-mode .rail-bottom h3{display:none}
+    .snapshot-mode #agent-form :disabled{opacity:1;color:var(--navy)}
+    .snapshot-mode #save-agent:disabled{opacity:.48}
+    main{max-width:1550px;margin:auto;padding:30px 34px 38px}
+    .page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;margin-bottom:24px}
+    .subtitle{margin-top:8px;color:var(--muted);font-size:13px}
+    .button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 15px;min-height:40px;border:1px solid #cbd6e6;border-radius:7px;background:var(--paper);color:var(--navy);font-weight:600;font-size:12px;white-space:nowrap;text-decoration:none}
+    .button:hover:not(:disabled){background:#f7f9fe;border-color:#a8bbd8}
+    .button.primary{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+    .button.primary:hover:not(:disabled){background:#1946cb}
+    .button.small{min-height:32px;padding:5px 10px}
+    .button.plain{background:transparent;border-color:transparent;padding:6px 8px}
+    .button-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .run-area{text-align:right;flex-shrink:0}.run-area .caption{margin-top:6px}
+    .caption{font-size:11px;color:var(--muted)}
+    .panel{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);overflow:hidden}
+    .panel-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:19px 22px;border-bottom:1px solid var(--line)}
+    .panel-body{padding:22px}
+    .section-gap{margin-top:20px}
+    .stack{display:flex;flex-direction:column;gap:18px}
+    .badge{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 7px;background:#edf1f7;color:#465b77;font-size:11px;font-weight:550;white-space:nowrap}
+    .badge.blue{background:var(--blue-light);color:#2048bd}.badge.purple{background:var(--purple-light);color:#665087}
+    .badge.good{background:var(--green-light);color:var(--green)}.badge.warn{background:var(--amber-light);color:var(--amber)}.badge.error{background:var(--red-light);color:var(--red)}
+    .muted{color:var(--muted)}.jev-text{color:var(--cobalt)}.llm-text{color:var(--purple)}.numeric{font-variant-numeric:tabular-nums}
+    .notice{border:1px solid #d9e3f7;background:#edf3ff;border-radius:8px;padding:12px 16px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+    .notice.error{background:var(--red-light);border-color:#efd0d6;color:#84243a}
+    .notice.warning{background:var(--amber-light);border-color:#ead9b9;color:var(--amber)}
+    .notice p{white-space:pre-wrap;overflow-wrap:anywhere}
+    .progress-panel{margin-bottom:22px;padding:15px 19px;background:var(--paper);border:1px solid var(--line);border-radius:8px}
+    .progress-top{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:10px}
+    .progress-steps{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:11px}
+    .progress-steps .active{color:var(--cobalt);font-weight:650}
+    progress{display:block;width:100%;height:5px;accent-color:var(--cobalt);border:0;border-radius:3px;overflow:hidden;background:#e9eef7}
+    progress::-webkit-progress-bar{background:#e9eef7}progress::-webkit-progress-value{background:var(--cobalt)}
+    .agent-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,1fr);gap:20px;align-items:start}
+    label.field-label{display:block;font-size:12px;font-weight:650;margin-bottom:7px}
+    input[type="text"],textarea,select{width:100%;border:1px solid #cad5e5;border-radius:6px;padding:10px 12px;background:#fff;color:var(--navy);font-size:13px}
+    textarea{resize:vertical;line-height:1.6;min-height:125px}
+    #agent-prompt{min-height:195px}#agent-knowledge{min-height:165px}
+    input:hover,textarea:hover,select:hover{border-color:#9fb2ce}
+    input:disabled,textarea:disabled{background:#f4f6fb;color:var(--muted)}
+    .field-help{margin-top:5px;font-size:11px;color:var(--muted)}
+    .form-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 22px;background:#fafcff;border-top:1px solid var(--line)}
+    .agent-icon{width:44px;height:44px;border-radius:11px;background:var(--blue-light);color:var(--cobalt);display:grid;place-items:center;margin-bottom:15px}
+    .profile-description{font-size:13px;color:var(--muted);margin:8px 0 18px}
+    .key-values{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 18px;font-size:12px}
+    .key-values dt{color:var(--muted)}.key-values dd{margin:0;text-align:right;overflow-wrap:anywhere}
+    .workflow-explainer{list-style:none;padding:0;margin:16px 0 0;counter-reset:flow}
+    .workflow-explainer li{position:relative;padding:0 0 22px 32px;counter-increment:flow;font-size:12px}
+    .workflow-explainer li::before{content:counter(flow);position:absolute;left:0;top:0;width:20px;height:20px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;font-size:10px;background:white}
+    .workflow-explainer li:not(:last-child)::after{content:"";position:absolute;left:10px;top:25px;bottom:5px;width:1px;background:var(--line)}
+    .workflow-explainer li:last-child{padding-bottom:0}
+    .workflow-explainer p{font-size:12px;color:var(--muted);margin-top:3px}
+    .empty{padding:48px 28px;text-align:center}
+    .empty-symbol{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 17px;background:var(--blue-light);color:var(--cobalt);border-radius:14px}
+    .empty h2{font-size:21px}.empty p{color:var(--muted);font-size:13px;max-width:53ch;margin:9px auto 20px}
+    .empty .button-group{justify-content:center}
+    .suite-meta{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px;font-size:12px;color:var(--muted)}
+    .rubric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+    .dimension{padding:18px 22px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .dimension summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px}
+    .dimension summary::-webkit-details-marker{display:none}
+    .dimension summary::after{content:"+";color:var(--muted)}.dimension[open] summary::after{content:"−"}
+    .dimension h3{overflow-wrap:anywhere}.dimension .caption{margin-top:7px}
+    .levels{padding-left:20px;margin:14px 0 0;font-size:12px;color:var(--muted)}
+    .levels li{padding-left:3px;margin:7px 0}
+    .table-wrap{overflow-x:auto}
+    table{border-collapse:collapse;width:100%;text-align:left;font-size:12px}
+    th{background:#f7f9fd;color:var(--muted);font-size:11px;font-weight:600;padding:11px 16px;white-space:nowrap;border-bottom:1px solid var(--line)}
+    td{padding:15px 16px;border-bottom:1px solid #e9eef5;vertical-align:top}
+    tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#f9fbff}
+    .case-cell{max-width:370px;min-width:200px}.case-id{color:var(--muted);font-size:10px;display:block;margin-bottom:4px}
+    .case-input{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .case-open{display:block;width:100%;text-align:left;border:0;padding:0;color:var(--navy);background:transparent;line-height:1.5}
+    .case-open:hover .case-input{color:var(--cobalt)}
+    .score-cell{min-width:104px}.score-value{font-weight:650;font-size:14px;font-variant-numeric:tabular-nums}
+    .score-track{height:3px;border-radius:2px;width:74px;background:#e9edf5;margin-top:7px;overflow:hidden}
+    .score-track span{display:block;height:100%;background:var(--cobalt)}.score-track.llm span{background:var(--purple)}
+    .table-controls{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:15px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+    .table-controls label{font-size:12px;display:flex;align-items:center;gap:7px}
+    input[type="checkbox"]{accent-color:var(--cobalt);width:15px;height:15px}
+    .search-field{max-width:230px}
+    .table-count{font-size:11px;color:var(--muted);padding:11px 20px;background:#fafcff;border-top:1px solid var(--line)}
+    .sort-button{background:none;border:0;color:var(--navy);font-size:11px;font-weight:650;padding:0}
+    .compare-heading{margin-bottom:19px}
+    .context-strip{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 18px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:20px}
+    .context-main{display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap}.context-main strong{font-weight:650}
+    .history-control{display:flex;gap:8px;align-items:center;min-width:210px}
+    .history-control label{font-size:11px;color:var(--muted);white-space:nowrap}.history-control select{padding:6px 8px;font-size:11px;max-width:245px}
+    .comparison-overview{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr);background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+    .metric{padding:22px 23px;border-right:1px solid var(--line)}.metric:last-child{border-right:0}
+    .metric-title{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:11px}
+    .metric-main{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;min-height:46px}
+    .metric-number{font-size:36px;line-height:1.15;letter-spacing:-1.4px;font-weight:650;font-variant-numeric:tabular-nums}
+    .metric-number.unrecorded{font-size:19px;letter-spacing:-.3px;color:var(--muted)}
+    .metric-unit{font-size:12px;color:var(--muted)}
+    .metric-note{font-size:11px;color:var(--muted);margin:6px 0 19px;min-height:33px}
+    .comparison-pair{display:grid;grid-template-columns:1fr auto;gap:10px;font-size:12px;align-items:center}.comparison-pair strong{text-align:right;overflow-wrap:anywhere}
+    .judge-label{display:flex;align-items:center;gap:7px;font-weight:600}
+    .judge-key{width:8px;height:8px;background:var(--cobalt);border-radius:2px;display:inline-block;flex-shrink:0}.judge-key.llm{background:var(--purple)}
+    .latency-line{display:grid;grid-template-columns:38px 1fr 62px;gap:9px;align-items:center;margin:11px 0;font-size:11px}
+    .latency-bar{height:8px;border-radius:3px;background:#f0f3f9;overflow:hidden}
+    .latency-fill{height:100%;background:var(--cobalt);border-radius:3px}.latency-fill.llm{background:var(--purple)}
+    .latency-value{text-align:right;font-variant-numeric:tabular-nums;font-size:11px}
+    .method-note{font-size:11px;color:var(--muted);margin:11px 1px 22px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .methodology{display:block;background:#f8faff;border-color:var(--line);color:var(--muted);margin-bottom:20px;line-height:1.65}.methodology strong{color:var(--navy)}
+    .quality-callout{padding:12px 20px;background:#f5f7fd;display:flex;align-items:flex-start;gap:9px;font-size:12px;border-bottom:1px solid var(--line)}
+    .quality-callout svg{flex-shrink:0;margin-top:1px}
+    .details-heading{cursor:pointer;padding:14px 20px;font-size:12px;font-weight:600}
+    .pricing-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:4px 20px 20px}
+    .pricing-block{font-size:12px}.pricing-block h3{margin-bottom:12px}.pricing-block p{margin-top:10px;font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+    .footnote{font-size:11px;color:var(--muted);padding:0 20px 18px}
+    .footer{display:flex;justify-content:space-between;gap:12px;margin-top:24px;color:var(--muted);font-size:11px}
+    dialog{position:fixed;inset:0 0 0 auto;margin:0;width:min(900px,94vw);height:100dvh;max-height:100dvh;max-width:100vw;border:0;border-left:1px solid var(--line);padding:0;color:var(--navy);background:var(--surface);box-shadow:-15px 0 65px #16274422}
+    dialog::backdrop{background:#14274266}
+    .drawer-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:22px 26px;background:white;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+    .drawer-heading h2{font-size:21px;margin-top:3px}
+    .icon-button{border:1px solid var(--line);background:white;border-radius:7px;width:34px;height:34px;display:grid;place-items:center;flex-shrink:0}
+    .drawer-body{padding:22px 26px}
+    .evidence-block{padding:18px 20px;background:white;border:1px solid var(--line);border-radius:8px;margin-bottom:14px}
+    .evidence-block h3{font-size:12px;margin-bottom:10px}
+    .prose{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+    .answer-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .answer-pair .evidence-block{min-width:0}
+    .judge-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+    .judge-evidence{background:white;border:1px solid #d3dffc;border-top:3px solid var(--cobalt);border-radius:8px;overflow:hidden;min-width:0}
+    .judge-evidence.llm{border-color:#e0d7eb;border-top-color:var(--purple)}
+    .judge-evidence-head{padding:17px 18px;border-bottom:1px solid var(--line)}
+    .judge-evidence-head .key-values{margin-top:13px;font-size:11px}
+    .judge-dimension{padding:17px 18px;border-bottom:1px solid var(--line)}
+    .judge-dimension:last-child{border:0}
+    .dimension-score{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:12px}
+    .dimension-score strong{overflow-wrap:anywhere}.dimension-score span{white-space:nowrap}
+    .confidence{display:block;font-size:10px;color:var(--muted);margin-top:5px}
+    .explanation{margin-top:12px;font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+    .explanation-label{font-size:10px;font-weight:650;color:var(--muted);display:block;margin:11px 0 3px}
+    .explanation-list{padding-left:16px;margin:0;font-size:12px;overflow-wrap:anywhere}
+    .drawer-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:20px;font-size:11px;color:var(--muted)}
+    .activity-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0 0 14px;background:white;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+    .activity-summary>div{padding:14px 17px;border-right:1px solid var(--line)}.activity-summary>div:last-child{border:0}
+    .activity-summary dt{font-size:11px;color:var(--muted)}.activity-summary dd{margin:3px 0 0;font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+    .activity-summary dd.unrecorded{font-size:12px;margin-top:8px;font-weight:500}
+    .execution-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+    .execution-heading h3{margin:0}.execution-heading .caption{text-align:right}
+    .trace-list{list-style:none;margin:0;padding:0}.trace-list>li{position:relative;border-left:2px solid var(--line);padding:0 0 12px 14px;margin-left:3px}.trace-list>li:last-child{padding-bottom:0}
+    .trace-list>li::before{content:"";position:absolute;width:8px;height:8px;left:-5px;top:13px;border-radius:50%;background:#8e9fb8;border:2px solid white}
+    .trace-list>li.trace-tool::before{background:var(--cobalt)}.trace-list>li.trace-memory::before{background:var(--purple)}
+    .trace-event{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fafcff}
+    .trace-event summary{cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;list-style:none;flex-wrap:wrap}
+    .trace-event summary::-webkit-details-marker{display:none}.trace-event summary::before{content:"+";font-size:15px;color:var(--muted);width:10px}.trace-event[open] summary::before{content:"−"}
+    .trace-event summary strong{font-size:12px;overflow-wrap:anywhere;min-width:0;flex:1}
+    .trace-step{font-size:10px;color:var(--muted)}.trace-time{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
+    .trace-body{padding:12px;border-top:1px solid var(--line);background:white}
+    .trace-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}.trace-pair>div{min-width:0}
+    .trace-body h4{font-size:11px;margin:0 0 7px;color:var(--muted);font-weight:600}
+    .trace-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;margin:0;background:#f6f8fc;border-radius:5px;padding:10px}
+    .trace-user{padding:9px 12px;background:#f5f8fd;border-radius:6px}.trace-user .prose{font-size:12px;margin-top:5px}
+    .checks-table th,.checks-table td{padding:10px;font-size:11px}.checks-table .check-value{white-space:pre-wrap;overflow-wrap:anywhere;min-width:100px;max-width:240px}
+    .checks-table .check-name{min-width:110px;max-width:200px;overflow-wrap:anywhere}
+    .tool-state{margin-top:14px}.tool-state summary{cursor:pointer;font-size:12px;font-weight:600;padding:10px 0}.tool-state .trace-code{margin-top:5px}
+    .agent-capability{font-size:12px;color:var(--muted);margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+    .toast{position:fixed;bottom:22px;left:calc(var(--rail) + 30px);background:var(--navy);color:white;padding:12px 18px;border-radius:8px;font-size:12px;max-width:calc(100vw - 50px);z-index:80;box-shadow:0 6px 24px #16274420}
+    @media(min-width:1500px){main{padding-top:38px}.metric{padding:25px 28px}}
+    @media(max-width:1180px){:root{--rail:192px}main{padding:26px 24px}.topbar{padding-left:24px;padding-right:24px}.metric{padding:18px 17px}.metric-number{font-size:31px}.agent-layout{grid-template-columns:minmax(0,1.5fr) minmax(240px,1fr)}}
+    @media(max-width:960px){:root{--rail:170px}.rail{padding-left:10px;padding-right:10px}.brand{font-size:19px}.rail-caption{font-size:10px}.comparison-overview{grid-template-columns:1fr 1fr}.metric:first-child{grid-column:1/-1;border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;column-gap:24px}.metric:first-child .metric-title{grid-column:1/-1}.metric:first-child .latency-chart{grid-column:2;grid-row:2/4}.metric:first-child .metric-note{margin-bottom:0}.agent-layout{grid-template-columns:1fr}.agent-aside{display:grid;grid-template-columns:1fr 1fr;gap:16px}.agent-aside .section-gap{margin:0}.context-strip{align-items:flex-start;flex-direction:column}.page-heading{gap:14px}h1{font-size:26px}.search-field{max-width:190px}}
+    @media(max-width:700px){:root{--rail:0px}.rail{position:static;width:100%;padding:15px 16px 10px;border-right:0;border-bottom:1px solid var(--line)}.brand{font-size:20px;padding:0}.rail-caption,.rail-bottom{display:none}.workflow{flex-direction:row;margin-top:15px;gap:5px}.workflow button{padding:8px 7px;gap:7px;justify-content:center}.step-detail{display:none}.step-number{width:22px;height:22px;flex-basis:22px;font-size:10px}.step-name{font-size:12px}.workspace{margin:0}.topbar{padding:10px 17px;min-height:48px}.connection{display:none}.top-actions{gap:8px}main{padding:24px 16px}.page-heading{flex-direction:column;margin-bottom:19px}.run-area{text-align:left}.run-area .caption{display:inline-block;margin-left:8px}.subtitle{font-size:12px}h1{font-size:27px}.panel-heading{padding:16px}.panel-body{padding:17px}.agent-aside{grid-template-columns:1fr}.metric-number{font-size:30px}.metric{padding:17px 15px}.metric:first-child{column-gap:15px}.metric-note{font-size:10px}.metric-unit{font-size:11px}.latency-line{grid-template-columns:30px 1fr 49px;gap:6px}.comparison-pair{font-size:11px;gap:9px}.table-controls{padding:12px 15px;gap:10px}.search-field{max-width:none;width:100%}.pricing-grid{grid-template-columns:1fr}.context-strip{padding:12px 14px}.history-control{width:100%}.history-control select{max-width:none}.footer{flex-direction:column;gap:5px}.notice{align-items:flex-start}.drawer-heading{padding:18px}.drawer-body{padding:17px}.answer-pair{grid-template-columns:1fr;gap:0}.judge-columns{gap:9px}.judge-dimension,.judge-evidence-head{padding:13px 11px}.dimension-score{display:block}.dimension-score span{display:block;margin-top:5px}.judge-evidence-head .key-values{display:block}.judge-evidence-head dd{text-align:left;margin-bottom:7px}dialog{width:100vw}.toast{left:16px;right:16px;bottom:16px}.panel-heading h2{font-size:16px}}
+    @media(prefers-reduced-motion:no-preference){dialog[open]{animation:drawer-in .18s ease-out}@keyframes drawer-in{from{transform:translateX(25px);opacity:.6}to{transform:translateX(0);opacity:1}}}
+    @media(max-width:700px){.topbar,.top-actions{flex-wrap:wrap}.top-actions{margin-left:auto}}
+    @media(max-width:550px){.trace-pair{grid-template-columns:1fr}.activity-summary>div{padding:12px 10px}.activity-summary dd{font-size:18px}.execution-heading{align-items:flex-start}.trace-event summary{gap:6px}.trace-step{width:100%;padding-left:18px}.trace-time{margin-left:0}.checks-table .check-value{min-width:90px}}
+
+    .configuration-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;list-style:none;margin:0 0 22px;padding:0;border:1px solid var(--line);border-radius:8px;background:white;overflow:hidden;counter-reset:configuration-step}
+    .configuration-flow li{counter-increment:configuration-step;border-right:1px solid var(--line)}.configuration-flow li:last-child{border:0}
+    .configuration-flow a{display:block;padding:15px 17px;color:var(--navy);text-decoration:none;font-size:12px;font-weight:650}.configuration-flow a:hover{background:var(--blue-light)}
+    .configuration-flow a::before{content:counter(configuration-step);display:inline-grid;place-items:center;width:20px;height:20px;background:var(--blue-light);color:var(--cobalt);border-radius:5px;margin-right:7px;font-size:10px}
+    .configuration-flow small{display:block;margin:6px 0 0 27px;color:var(--muted);font-size:10px;font-weight:400}
+    .configuration-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}.configuration-grid>.panel{min-width:0}
+    .configuration-section{scroll-margin-top:20px}.configuration-section .panel-heading p{margin-top:5px}
+    .configuration-expand{border-top:1px solid var(--line)}.configuration-expand:first-child{border-top:0}
+    .configuration-expand summary{display:flex;align-items:flex-start;gap:9px;padding:13px 17px;cursor:pointer;list-style:none;font-size:12px}
+    .configuration-expand summary::-webkit-details-marker{display:none}.configuration-expand summary::before{content:"+";color:var(--muted);width:10px;flex-shrink:0}.configuration-expand[open] summary::before{content:"−"}
+    .configuration-expand summary strong{display:block;font-weight:600;overflow-wrap:anywhere}.configuration-expand summary .caption{display:block;margin-top:3px}
+    .configuration-expand .configuration-code{margin:0 17px 16px}.configuration-code{max-height:440px;tab-size:2}
+    .configuration-missing{font-size:12px;color:var(--muted);padding:15px 17px}
+    .configuration-parameters{display:grid;grid-template-columns:minmax(80px,1fr) minmax(0,1.5fr);gap:8px 18px;padding:0 17px 15px;font-size:12px;margin:0}
+    .configuration-parameters dt{color:var(--muted);overflow-wrap:anywhere}.configuration-parameters dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;text-align:right}
+    .configuration-backend{border-top:3px solid var(--cobalt)}.configuration-backend.llm{border-top-color:var(--purple)}
+    .configuration-model{font-size:12px;color:var(--muted);margin:0 17px 14px;overflow-wrap:anywhere}
+    .configuration-notes{padding:14px 20px;font-size:12px;color:var(--muted);list-style:disc;margin:0 0 0 14px}.configuration-notes li{margin:7px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+    .configuration-case-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.configuration-case-control label{font-size:12px;font-weight:600}.configuration-case-control select{max-width:430px}
+    .configuration-request-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.configuration-request-grid>section{min-width:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+    .configuration-request-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 16px}.configuration-request-heading h3{font-size:12px}
+    .configuration-hash{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px}
+    @media(max-width:1100px){.configuration-flow{grid-template-columns:1fr 1fr}.configuration-flow li:nth-child(2){border-right:0}.configuration-flow li:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+    @media(max-width:700px){.workflow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.workflow button{justify-content:flex-start}.configuration-grid,.configuration-request-grid{grid-template-columns:1fr}.configuration-case-control select{max-width:none}.configuration-flow a{padding:12px}.configuration-flow small{margin-left:0}.configuration-parameters{grid-template-columns:minmax(70px,1fr) minmax(0,1.5fr)}}
+    @media print{.rail,.topbar,.run-area,.table-controls,.footer,.button,.toast{display:none!important}.workspace{margin:0}main{padding:0}.panel,.comparison-overview{break-inside:avoid}body{background:white}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to workbench</a>
+  <aside class="rail" aria-label="Workbench navigation">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>eval layer</div>
+    <div class="rail-caption">The judge comparison workbench</div>
+    <nav class="workflow" role="tablist" aria-label="Evaluation workflow" aria-orientation="vertical">
+      <button id="tab-agent" role="tab" aria-controls="view-agent" aria-selected="true" data-tab="agent"><span class="step-number">1</span><span><span class="step-name">Agent</span><span class="step-detail" id="nav-agent-detail">Configure the subject</span></span></button>
+      <button id="tab-suite" role="tab" aria-controls="view-suite" aria-selected="false" tabindex="-1" data-tab="suite"><span class="step-number">2</span><span><span class="step-name">Eval set</span><span class="step-detail" id="nav-suite-detail">Rubric + 10 cases</span></span></button>
+      <button id="tab-compare" role="tab" aria-controls="view-compare" aria-selected="false" tabindex="-1" data-tab="compare"><span class="step-number">3</span><span><span class="step-name">Compare</span><span class="step-detail" id="nav-compare-detail">Jev vs. LLM judge</span></span></button>
+      <button id="tab-config" role="tab" aria-controls="view-config" aria-selected="false" tabindex="-1" data-tab="config"><span class="step-number" aria-hidden="true">{ }</span><span><span class="step-name">Configuration</span><span class="step-detail">Artifacts + judge inputs</span></span></button>
+    </nav>
+    <div class="rail-bottom">
+      <h3>Provider connections</h3>
+      <div class="credential"><span>Jev</span><span id="credential-jev">Checking…</span></div>
+      <div class="credential"><span>LLM</span><span id="credential-llm">Checking…</span></div>
+      <p class="rail-note">Live agent outputs. Shared rubric.<br>Every judgment open to inspection.</p>
+    </div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="breadcrumb"><span>Skill demo</span><span aria-hidden="true">/</span><strong id="breadcrumb-page">Agent</strong></div>
+      <div class="top-actions"><span class="connection" id="connection">Connecting to local server</span><a class="export" href="/api/export" download="eval-layer-run.json" id="export-link"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>Export current JSON</a><button class="button small" id="export-html" title="Export the saved current state as a standalone, read-only HTML report. Unsaved edits and historical selections are not included." disabled>Export HTML</button></div>
+    </header>
+    <main id="main" tabindex="-1">
+      <div id="error-banner" class="notice error" role="alert" hidden><p id="error-message"></p><button class="button small" id="retry-connection">Retry connection</button></div>
+      <div id="snapshot-banner" class="notice" role="note" hidden><p id="snapshot-message"></p><span class="badge blue">Read-only</span></div>
+      <div id="prerequisites" class="notice warning" hidden></div>
+      <div id="job-panel" class="progress-panel" hidden aria-label="Evaluation progress">
+        <div class="progress-top"><span id="job-message" role="status" aria-live="polite"></span><span id="job-count" class="numeric"></span></div>
+        <progress id="job-progress" aria-label="Current stage progress"></progress>
+        <div class="progress-steps" id="job-steps"></div>
+      </div>
+      <section id="view-agent" role="tabpanel" aria-labelledby="tab-agent">
+        <div class="page-heading">
+          <div><h1>Start with your support agent.</h1><p class="subtitle">Evaluate its answers, tool use, and memory across a conversation.</p></div>
+          <div class="run-area"><button class="button primary" data-action="run-all"><span aria-hidden="true">▶</span> Run full evaluation</button><div class="caption">Generate → run agent → compare judges</div></div>
+        </div>
+        <div class="agent-layout">
+          <form id="agent-form" class="panel">
+            <div class="panel-heading"><h2>Agent configuration</h2><span class="badge" id="save-status">Loading</span></div>
+            <div class="panel-body stack">
+              <div><label class="field-label" for="agent-name">Agent name</label><input id="agent-name" name="name" type="text" required autocomplete="off" placeholder="Customer support agent"></div>
+              <div><label class="field-label" for="agent-prompt">System instructions</label><textarea id="agent-prompt" name="system_prompt" required placeholder="Describe how your agent should respond, what it can do, and when it should escalate."></textarea><p class="field-help">The skill generates a rubric from the behavior defined here.</p></div>
+              <div><label class="field-label" for="agent-knowledge">Support knowledge</label><textarea id="agent-knowledge" name="knowledge" required placeholder="Product details, policies, support procedures, and reference information."></textarea><p class="field-help">Include the policies and facts the agent needs to answer correctly.</p></div>
+            </div>
+            <div class="form-footer"><span class="caption" id="edit-help">Save your configuration before generating an eval set.</span><button type="submit" class="button" id="save-agent">Save agent</button></div>
+          </form>
+          <div class="agent-aside">
+            <div class="panel"><div class="panel-body">
+              <div class="agent-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13v-2a8 8 0 0 1 16 0v2M4 12H2v6h4v-6H4zm16 0h2v6h-4v-6h2zm0 6c0 3-3 3-6 3"/><path d="M9 10h.01M15 10h.01M9 15c2 1 4 1 6 0" stroke-linecap="round"/></svg></div>
+              <h2 id="agent-profile-name">Your evaluation subject</h2><p class="profile-description" id="agent-description">Load the agent from the local server to get started.</p>
+              <dl class="key-values"><dt>Agent model</dt><dd id="agent-model">Not recorded</dd><dt>Source</dt><dd id="agent-source">Not recorded</dd></dl>
+              <p class="agent-capability">Sandbox support tools and a durable memory store let the agent act across multiple turns. Each case has isolated tool data and memory.</p>
+              <details id="agent-source-details" class="section-gap" hidden><summary style="cursor:pointer;font-size:12px">Inspect agent source</summary><pre id="agent-source-code" class="prose" style="font-size:11px;margin-top:12px;max-height:300px;overflow:auto"></pre></details>
+            </div></div>
+            <div class="panel section-gap"><div class="panel-body">
+              <h3>One agent. Two independent judges.</h3>
+              <ol class="workflow-explainer"><li><strong>Generate the eval set</strong><p>The skill uses the actual source and policy to write a rubric and customer wording for 10 authored scenario contracts.</p></li><li><strong>Run the actual agent</strong><p>The model selects tools and retrieves memory across turns. Tool executions are real; their sandbox data is synthetic and local.</p></li><li><strong>Compare Jev and a live LLM</strong><p>Inspect both judges alongside the recorded execution evidence. Overall pass requires the rubric and deterministic checks to pass.</p></li></ol>
+              <button class="button primary section-gap" data-action="generate">Generate eval set</button>
+              <p class="caption" style="margin-top:9px">Live runs use the configured providers and incur API costs.</p>
+            </div></div>
+          </div>
+        </div>
+      </section>
+      <section id="view-suite" role="tabpanel" aria-labelledby="tab-suite" hidden>
+        <div class="page-heading"><div><h1>Your agent, made testable.</h1><p class="subtitle">Inspect the generated rubric and cases before running the agent.</p></div><div class="button-group"><button class="button" data-action="generate">Generate eval set</button><button class="button primary" data-action="run-agent">Run agent on cases</button></div></div>
+        <div id="suite-content"></div>
+      </section>
+      <section id="view-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+        <div class="page-heading compare-heading"><div><h1>Same answers. Two judges.</h1><p class="subtitle">Measure the tradeoffs in speed, estimated cost, and scoring.</p></div><div class="run-area"><button class="button primary" data-action="compare"><span aria-hidden="true">▶</span> Compare judges</button><div class="caption">Uses recorded agent answers</div></div></div>
+        <div id="comparison-context"></div>
+        <div id="compare-content"></div>
+      </section>
+      <section id="view-config" role="tabpanel" aria-labelledby="tab-config" hidden>
+        <div class="page-heading"><div><h1>What the skill created.</h1><p class="subtitle">Follow the source context into the rubric, cases, checks, and judge requests.</p></div><span class="badge blue">Configuration inspector</span></div>
+        <div id="configuration-content"></div>
+      </section>
+      <footer class="footer"><span>eval-layer / live evaluation lab</span><span>Costs are estimates, not billed charges. No synthetic measurements.</span></footer>
+    </main>
+  </div>
+  <dialog id="evidence-drawer" aria-labelledby="drawer-title">
+    <div class="drawer-heading"><div><span class="caption" id="drawer-kicker">Case evidence</span><h2 id="drawer-title">Inspect case</h2></div><button class="icon-button" id="close-drawer" aria-label="Close evidence drawer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="drawer-body" id="drawer-content"></div>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script id="eval-layer-snapshot" type="application/json"></script>
+  <script id="eval-layer-runtime">
+    "use strict";
+    // No model calls happen on page load. All mutations require an explicit user action.
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    // Preserve the original template before rendering, so exports cannot include stale
+    // historical views, open drawers, unsaved form values, or transient notices.
+    const HTML_TEMPLATE = "<!doctype html>\n" + document.documentElement.outerHTML;
+    const SNAPSHOT_POLICY = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'";
+    const snapshotText = $("#eval-layer-snapshot")?.textContent.trim() || "";
+    let embeddedSnapshot = null, snapshotLoadError = "";
+    if(snapshotText) {
+      try {embeddedSnapshot=JSON.parse(snapshotText);if(!embeddedSnapshot?.agent)throw new Error("The embedded state is missing its agent configuration.");}
+      catch(error) {snapshotLoadError=`Cannot read this HTML snapshot: ${error.message}`;}
+    }
+    const app = {state:null, tab:"agent", dirty:false, saving:false, pending:false, initialized:false,
+      offline:Boolean(snapshotText),exporting:false,
+      history:null, historyId:"", historyLoading:false, onlyDisagreements:false, descending:true, search:"",
+      drawerCase:null, drawerSource:"compare", polling:null, pollBusy:false, connectionError:false, jobError:"",
+      configCaseId:"", fingerprints:{suite:"",compare:"",context:"",config:""}, toastTimer:null};
+    const finite = value => typeof value === "number" && Number.isFinite(value);
+    const text = value => value == null ? "" : typeof value === "string" ? value : JSON.stringify(value, null, 2);
+    const esc = value => text(value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    const pretty = value => text(value).replace(/_/g," ");
+    const num = (value, digits = 1) => finite(value) ? value.toLocaleString(undefined,{maximumFractionDigits:digits}) : "Not recorded";
+    const pct = value => finite(value) ? `${num(value*100,1)}%` : "Not recorded";
+    const ms = value => !finite(value) ? "Not recorded" : value >= 1000 ? `${num(value/1000,2)} s` : `${num(value,0)} ms`;
+    const money = value => !finite(value) ? "Not recorded" : value === 0 ? "$0.00" : value < .0001 ? "<$0.0001" : `$${value.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:4})}`;
+    const when = value => {if(!value)return "Not recorded";const date=new Date(value);return Number.isNaN(date.getTime())?text(value):date.toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});};
+    const icon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg>';
+    const emptyIcon = '<div class="empty-symbol" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v16H4zM4 9h16M9 9v11m4-7h4m-4 3h4"/></svg></div>';
+    const isBusy = () => app.pending || ["running","queued","pending","busy","in_progress"].includes(app.state?.job?.status);
+    const comparison = () => app.history || app.state?.comparison;
+    const rubric = () => app.history ? (app.history.rubric || app.history.suite?.rubric || null) : app.state?.suite?.rubric;
+    const dimensions = () => rubric()?.dimensions || [];
+    const cases = () => app.state?.suite?.test_cases || [];
+    const configured = () => Boolean(app.state?.agent?.name?.trim() && app.state?.agent?.system_prompt?.trim() && text(app.state?.agent?.knowledge).trim());
+    const agentRows = () => app.state?.agent_run?.rows || [];
+    const count = value => Number.isInteger(value)&&value>=0?value:null;
+    function executionCounts(row) {
+      const trace=Array.isArray(row?.trace)?row.trace:null;
+      return {
+        tool_calls:trace?trace.filter(event=>event?.type==="tool_call").length:count(row?.agent_metadata?.tool_calls),
+        model_calls:trace?trace.filter(event=>event?.type==="model_call").length:count(row?.model_calls),
+        user_turns:trace?trace.filter(event=>event?.type==="user_turn").length:null
+      };
+    }
+    function runCounts(run, rows=[]) {
+      const totals={};
+      for(const key of ["tool_calls","model_calls"]) {
+        const supplied=count(run?.[key])??count(run?.summary?.[key]);
+        const values=rows.map(row=>executionCounts(row)[key]);
+        totals[key]=supplied!==null?supplied:values.length&&values.every(value=>value!==null)?values.reduce((sum,value)=>sum+value,0):null;
+      }
+      return totals;
+    }
+    function activityText(run, rows) {
+      const totals=runCounts(run,rows);
+      return `Tool calls: ${num(totals.tool_calls,0)} · Model turns: ${num(totals.model_calls,0)}`;
+    }
+    function dataText(value) {
+      if(value===undefined)return "Not recorded";
+      if(value===null)return "null";
+      if(value==="")return '""';
+      if(typeof value==="string") {
+        try {const parsed=JSON.parse(value);if(parsed!==null&&typeof parsed==="object")return JSON.stringify(parsed,null,2);}catch {}
+        return value;
+      }
+      return JSON.stringify(value,null,2);
+    }
+    function checkCounts(rows) {
+      const recorded=rows.filter(row=>Array.isArray(row?.checks));
+      return {recorded:recorded.length,total:recorded.reduce((sum,row)=>sum+row.checks.length,0),
+        failed:recorded.reduce((sum,row)=>sum+row.checks.filter(check=>check?.passed===false).length,0),
+        failed_cases:recorded.filter(row=>row.checks.some(check=>check?.passed===false)).length};
+    }
+    function rubricPass(result) {
+      if(!result||result.error)return null;
+      if(typeof result.rubric_passed==="boolean")return result.rubric_passed;
+      const score=weighted(result),threshold=rubric()?.pass_threshold;
+      return finite(score)&&finite(threshold)?score>=threshold:null;
+    }
+    function checksPass(result,row) {
+      if(typeof result?.checks_passed==="boolean")return result.checks_passed;
+      if(!Array.isArray(row?.checks)||!row.checks.length)return null;
+      return row.checks.some(check=>check?.passed===false)?false:row.checks.every(check=>check?.passed===true)?true:null;
+    }
+    function overallPass(result) {return !result?.error&&typeof result?.passed==="boolean"?result.passed:null;}
+    function passBadge(value) {return `<span class="badge ${value===true?"good":value===false?"error":""}">${value===true?"Pass":value===false?"Fail":"Not recorded"}</span>`;}
+    const judgeLabel = key => key === "jev" ? "Jev" : "LLM judge";
+    const canScore = result => result && !result.error && result.scores && Object.keys(result.scores).length > 0;
+    function weighted(result) {
+      if (!canScore(result)) return null;
+      if(finite(result.weighted_score))return result.weighted_score;
+      const dims=dimensions();
+      if(!dims.length || dims.some(d=>!finite(result.scores[d.name]) || !finite(d.scale) || d.scale <= 0 || !finite(d.weight)))return null;
+      return dims.reduce((sum,d)=>sum+result.scores[d.name]/d.scale*d.weight,0);
+    }
+    function rowGap(row) {const a=weighted(row.judges?.jev),b=weighted(row.judges?.llm);return finite(a)&&finite(b)?Math.abs(a-b):null;}
+    function disagrees(row) {
+      const a=row.judges?.jev,b=row.judges?.llm;
+      return canScore(a)&&canScore(b)&&Object.keys(a.scores).some(key=>finite(a.scores[key])&&finite(b.scores[key])&&Math.abs(a.scores[key]-b.scores[key])>1e-9);
+    }
+    function thresholdDisagreement(row) {
+      const a=overallPass(row.judges?.jev),b=overallPass(row.judges?.llm);
+      return a!==null&&b!==null&&a!==b;
+    }
+    function visibleRows() {
+      return [...(comparison()?.rows||[])].filter(row=>(!app.onlyDisagreements||disagrees(row))&&(!app.search||[row.case_id,row.input,row.agent_output].some(v=>text(v).toLowerCase().includes(app.search.toLowerCase()))))
+        .sort((a,b)=>{const x=rowGap(a),y=rowGap(b);if(x===null)return y===null?0:1;if(y===null)return -1;return app.descending?y-x:x-y;});
+    }
+    function showToast(message) {clearTimeout(app.toastTimer);$("#toast").textContent=message;$("#toast").hidden=false;app.toastTimer=setTimeout(()=>$("#toast").hidden=true,4500);}
+    function replaceContent(selector,html) {
+      const root=$(selector),active=document.activeElement,inside=root.contains(active);
+      const focusId=inside?active.id:null,step=inside?active.dataset?.drawerStep:null;
+      const selection=inside&&typeof active.selectionStart==="number"?[active.selectionStart,active.selectionEnd]:null;
+      const openDetails=new Set($$("details",root).flatMap((detail,index)=>detail.open?[detail.dataset.stateKey||`position:${index}`]:[]));
+      root.innerHTML=html;
+      $$("details",root).forEach((detail,index)=>detail.open=openDetails.has(detail.dataset.stateKey||`position:${index}`));
+      const replacement=focusId?document.getElementById(focusId):step?root.querySelector(`[data-drawer-step="${step}"]`):null;
+      if(replacement){replacement.focus({preventScroll:true});if(selection&&replacement.setSelectionRange)replacement.setSelectionRange(...selection);}
+    }
+    function showError(message, connection=false) {$("#error-message").textContent=message;$("#error-banner").hidden=false;$("#retry-connection").hidden=!connection;app.connectionError=connection;}
+    function clearError() {$("#error-banner").hidden=true;app.connectionError=false;}
+    function snapshotState(state, capturedAt=null) {
+      // Only the documented evaluation fields are exported. Credentials and other
+      // historical runs are deliberately absent; all measurements remain unchanged.
+      const fields=["agent","suite","agent_run","comparison","job","pricing","evaluation_config"];
+      const snapshot=JSON.parse(JSON.stringify(Object.fromEntries(fields.filter(key=>key in state).map(key=>[key,state[key]]))));
+      snapshot.history=[];
+      snapshot._snapshot={version:1,read_only:true,captured_at:capturedAt||state._snapshot?.captured_at||null};
+      return snapshot;
+    }
+    function safeSnapshotJSON(snapshot) {
+      return JSON.stringify(snapshot).replace(/</g,"\\u003c").replace(/>/g,"\\u003e").replace(/&/g,"\\u0026").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
+    }
+    function buildSnapshotHTML(state, template=HTML_TEMPLATE) {
+      if(!state?.agent)throw new Error("No current agent state is available to export.");
+      const snapshot=snapshotState(state,app.offline?null:new Date().toISOString());
+      const marker=/<script id="eval-layer-snapshot" type="application\/json">[\s\S]*?<\/script>/;
+      if(!marker.test(template))throw new Error("The snapshot placeholder is missing from the HTML template.");
+      const embedded='<script id="eval-layer-snapshot" type="application/json">'+safeSnapshotJSON(snapshot)+"<"+"/script>";
+      return template.replace(marker,()=>embedded)
+        .replace(/<meta id="eval-layer-snapshot-csp"[^>]*>/g,"")
+        .replace("<head>",()=>`<head>\n  <meta id="eval-layer-snapshot-csp" http-equiv="Content-Security-Policy" content="${SNAPSHOT_POLICY}">`);
+    }
+    function downloadFile(content,type,filename) {
+      const url=URL.createObjectURL(new Blob([content],{type})),link=document.createElement("a");
+      link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+    async function exportHTML() {
+      if(app.exporting)return;
+      app.exporting=true;updateControls();
+      try {
+        const state=await api("/api/state");
+        downloadFile(buildSnapshotHTML(state),"text/html;charset=utf-8","eval-layer-report.html");
+        showToast("HTML snapshot exported. It opens offline with editing and model calls disabled.");
+      } catch(error){showError(`HTML export failed: ${error.message}`);}
+      finally {app.exporting=false;updateControls();}
+    }
+    function initializeSnapshotMode() {
+      if(!app.offline)return;
+      document.documentElement.classList.add("snapshot-mode");
+      if(!$("#eval-layer-snapshot-csp")) {
+        const policy=document.createElement("meta");
+        policy.id="eval-layer-snapshot-csp";policy.httpEquiv="Content-Security-Policy";policy.content=SNAPSHOT_POLICY;
+        document.head.append(policy);
+      }
+      $("#export-link").href="#snapshot-json";$("#export-link").textContent="Export snapshot JSON";
+      $("#retry-connection").hidden=true;
+      $("#snapshot-banner").hidden=false;
+      $("#snapshot-message").textContent="Saved live evaluation results. Viewing this file makes no additional network requests or model calls.";
+    }
+    async function api(path, options={}) {
+      if(app.offline) {
+        if(snapshotLoadError)throw new Error(snapshotLoadError);
+        if((options.method||"GET").toUpperCase()==="GET"&&["/api/state","/api/export"].includes(path))return snapshotState(embeddedSnapshot);
+        throw new Error("This HTML snapshot is read-only. Network requests and model calls are disabled; use the live workbench to run an evaluation.");
+      }
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+      try {
+        const response=await fetch(path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.body?{"Content-Type":"application/json"}:{}),...options.headers},signal:controller.signal});
+        const raw=await response.text();let data;
+        try {data=raw?JSON.parse(raw):{};}catch {throw new Error(`The server returned a non-JSON response (${response.status}). Check the demo server logs.`);}
+        if(!response.ok)throw new Error(text(data.error?.message||data.error||data.message||`Request failed (${response.status}).`));
+        return data;
+      } catch(error) {if(error.name==="AbortError")throw new Error("The server did not respond within 20 seconds. Check its status, then retry.");throw error;}
+      finally {clearTimeout(timer);}
+    }
+    function setTab(tab, focus=false) {
+      app.tab=tab;
+      $$(".workflow [role=tab]").forEach(button=>{const active=button.dataset.tab===tab;button.setAttribute("aria-selected",String(active));button.tabIndex=active?0:-1;if(active&&focus)button.focus();});
+      $$("[role=tabpanel]").forEach(panel=>panel.hidden=panel.id!==`view-${tab}`);
+      $("#breadcrumb-page").textContent={agent:"Agent",suite:"Eval set",compare:"Compare",config:"Configuration"}[tab];
+      if(tab==="compare")renderCompare();
+      if(tab==="suite")renderSuite();
+      if(tab==="config")renderConfiguration();
+    }
+    function renderAgent() {
+      const agent=app.state.agent||{};
+      if(!app.dirty && document.activeElement?.closest("#agent-form")==null) {
+        $("#agent-name").value=agent.name||"";$("#agent-prompt").value=agent.system_prompt||"";$("#agent-knowledge").value=typeof agent.knowledge==="string"?agent.knowledge:text(agent.knowledge);
+      }
+      $("#agent-profile-name").textContent=agent.name||"Your evaluation subject";
+      $("#agent-description").textContent=agent.description||"A live support agent with sandbox tools, durable memory, and a rubric generated from its source and policy.";
+      $("#agent-model").textContent=agent.model||"Not recorded";
+      const source=text(agent.source),isCode=source.includes("\n")||source.length>160;
+      $("#agent-source").textContent=isCode?"Source included":source||"Not recorded";
+      $("#agent-source-details").hidden=!isCode;$("#agent-source-code").textContent=isCode?source:"";
+      $("#save-status").textContent=app.offline?"Read-only snapshot":app.saving?"Saving…":app.dirty?"Unsaved changes":configured()?"Saved":"Not configured";
+      $("#save-status").className=`badge ${app.dirty?"warn":configured()?"good":""}`;
+      $("#edit-help").textContent=app.offline?"Captured agent configuration. Open the live workbench to make changes.":app.dirty?"Saving changes clears the current eval set and outputs. Saved runs stay in history.":configured()?"Configuration saved on the local server.":"Save a name, system instructions, and support knowledge to start.";
+    }
+    function updateControls() {
+      const busy=isBusy(),credentials=app.state?.credentials||{},ready=Boolean(app.state);
+      $$("[data-action]").forEach(button=>{
+        const action=button.dataset.action;
+        let reason=app.offline?"This HTML snapshot is read-only. Open the live workbench to run an evaluation.":!ready?"Waiting for the server.":busy?"An evaluation stage is already running.":app.dirty?"Save your agent changes first.":"";
+        if(!reason && ["generate","run-all"].includes(action)&&!configured())reason="Save an agent name, system instructions, and support knowledge first.";
+        if(!reason && ["generate","run-agent","run-all","compare"].includes(action)&&!credentials.llm)reason="Configure the LLM provider credentials on the server.";
+        if(!reason && ["run-all","compare"].includes(action)&&!credentials.jev)reason="Configure the Jev provider credentials on the server.";
+        if(!reason && action==="run-agent"&&!cases().length)reason="Generate an eval set first.";
+        if(!reason && action==="compare"&&!agentRows().length)reason="Run the agent on the eval set first.";
+        button.disabled=Boolean(reason);button.title=reason;
+      });
+      $("#save-agent").disabled=app.offline||!ready||busy||app.saving||(!app.dirty&&configured());
+      $$("#agent-form input, #agent-form textarea").forEach(input=>input.disabled=app.offline||!ready||busy||app.saving);
+      $("#export-html").disabled=!ready||app.exporting;
+      $("#export-html").textContent=app.exporting?"Exporting…":"Export HTML";
+      const missing=[];
+      if(!app.offline&&ready&&!credentials.llm)missing.push("LLM credentials are missing. Configure the server’s LLM provider to generate cases, run the agent, and use the LLM judge.");
+      if(!app.offline&&ready&&!credentials.jev)missing.push("Jev credentials are missing. Configure the server’s Jev provider to compare both judges.");
+      $("#prerequisites").hidden=!missing.length;
+      $("#prerequisites").textContent=missing.join(" ");
+    }
+    function renderStatus() {
+      const state=app.state,job=state.job||{},busy=isBusy();
+      $("#connection").textContent=app.offline?"Offline snapshot":busy?"Live run in progress":"Connected to local server";
+      if(!app.offline)for(const key of ["jev","llm"])$("#credential-"+key).innerHTML=`<span class="status-dot ${state.credentials?.[key]?"ready":"missing"}" aria-hidden="true"></span>${state.credentials?.[key]?"Configured":"Missing"}`;
+      if(app.offline) {
+        const completed=["complete","completed"].includes(state.comparison?.status);
+        $("#snapshot-message").textContent=`${completed?"Saved results from a completed live evaluation.":"Saved results from a live evaluation; the full comparison was not complete at capture."} Captured ${when(state._snapshot?.captured_at)}. Viewing these results makes no additional network requests or model calls.${busy?" Results captured during the run will not update in this file.":""}`;
+      }
+      $("#nav-agent-detail").textContent=configured()?"Configured":"Configure the subject";
+      $("#nav-suite-detail").textContent=state.suite?`${cases().length} cases generated`:"Rubric + 10 cases";
+      $("#nav-compare-detail").textContent=state.comparison?`${state.comparison.rows?.length||0} case results`:"Jev vs. LLM judge";
+      $("#job-panel").hidden=!busy&&!job.error;
+      const message=job.error?`${pretty(job.stage)||"Evaluation"} failed: ${text(job.error)}`:job.message||(app.pending?"Starting evaluation…":pretty(job.stage)||"Working…");
+      $("#job-message").textContent=app.offline?`At capture: ${message}`:message;
+      $("#job-count").textContent=finite(job.current)&&finite(job.total)&&job.total>0?`${job.current} / ${job.total}`:"";
+      const progress=$("#job-progress");
+      if(finite(job.total)&&job.total>0){progress.max=job.total;progress.value=finite(job.current)?job.current:0;}else if(app.offline){progress.max=1;progress.value=0;}else{progress.removeAttribute("value");progress.removeAttribute("max");}
+      const stage=text(job.stage).toLowerCase();
+      $("#job-steps").innerHTML=[["generate","Generate rubric + cases"],["agent","Run agent"],["compar","Compare judges"]].map(([key,label])=>`<span class="${stage.includes(key)||(key==="compar"&&/judge|jev|llm/.test(stage))?"active":""}">${label}</span>`).join('<span aria-hidden="true">/</span>');
+      if(job.error&&app.jobError!==text(job.error)){app.jobError=text(job.error);showError(`${pretty(job.stage)||"Evaluation"} failed: ${text(job.error)}.${app.offline?" Error recorded in this snapshot.":" Check the server configuration or retry the stage."}`);}
+      if(!job.error)app.jobError="";
+    }
+    function renderSuite() {
+      if(!app.state)return;
+      const signature=JSON.stringify([app.state.suite,app.state.agent_run]);
+      if(app.fingerprints.suite===signature)return;
+      app.fingerprints.suite=signature;
+      const suite=app.state.suite;
+      if(!suite){$("#suite-content").innerHTML=`<div class="panel empty">${emptyIcon}<h2>A rubric built for this agent.</h2><p>Generate customer wording and scoring criteria for 10 authored scenario contracts using the saved agent source and policy. Nothing has been generated yet.</p><div class="button-group"><button class="button primary" data-action="generate">Generate eval set</button><button class="button" data-tab="agent">Review agent</button></div></div>`;updateControls();return;}
+      const dims=suite.rubric?.dimensions||[],run=app.state.agent_run;
+      replaceContent("#suite-content",`
+        <div class="suite-meta"><span>Generated ${esc(when(suite.generated_at))}</span><span>Model: ${esc(suite.generator_model||"Not recorded")}</span><span title="${esc(suite.skill_hash)}">Skill ${esc(suite.skill_hash?text(suite.skill_hash).slice(0,10):"hash not recorded")}</span>${suite.reference_provenance?`<span>Expectations: ${esc(suite.reference_provenance)}</span>`:""}</div>
+        <div class="panel"><div class="panel-heading"><div><h2>Generated rubric</h2><p class="caption" style="margin-top:4px">Expand a dimension to inspect its scoring levels.</p></div><span class="badge blue">Pass threshold ${esc(pct(suite.rubric?.pass_threshold))}</span></div>
+        <div class="rubric-grid">${dims.map(dim=>`<details class="dimension"><summary><div><h3>${esc(pretty(dim.name))}</h3><p class="caption">${esc(dim.scale)}-point scale · ${esc(pct(dim.weight))} weight</p></div></summary><ol class="levels">${Object.entries(dim.levels||{}).map(([level,description])=>`<li value="${esc(level)}">${esc(description)}</li>`).join("")}</ol></details>`).join("")}</div></div>
+        <div class="panel section-gap"><div class="panel-heading"><div><h2>${cases().length} generated test cases</h2><p class="caption" style="margin-top:4px">Select a case to inspect its conversation, tool and memory trace, checks, and recorded answer.</p></div><span class="badge ${run?"good":""}">${run?`${agentRows().length} agent answers`:"Agent not run"}</span></div>
+        <div class="table-wrap"><table><caption class="sr-only">Generated evaluation cases</caption><thead><tr><th scope="col">Case / customer request</th><th scope="col">Category</th><th scope="col">Difficulty</th><th scope="col">Agent output</th></tr></thead><tbody>${cases().map(c=>{
+          const answer=agentRows().find(row=>row.case_id===c.id);
+          return `<tr><td class="case-cell"><button class="case-open" data-case="${esc(c.id)}" data-source="suite"><span class="case-id">${esc(c.id)}</span><span class="case-input">${esc(c.input)}</span></button></td><td>${esc(pretty(c.metadata?.category)||"Not recorded")}</td><td><span class="badge">${esc(pretty(c.metadata?.difficulty)||"Not recorded")}</span></td><td>${answer?.agent_metadata?.error?`<span class="badge error">Agent error</span>`:answer?.agent_output!=null?'<span class="badge good">Recorded</span>':'<span class="muted">Pending</span>'}</td></tr>`;
+        }).join("")}</tbody></table></div>
+        ${run?`<div class="table-count">${esc(activityText(run,agentRows()))} · Failed checks: ${checkCounts(agentRows()).recorded?checkCounts(agentRows()).failed:"Not recorded"}<br>Agent wall time: ${esc(ms(run.wall_ms))} · Estimated agent cost: ${esc(money(run.cost_usd))} · Status: ${esc(pretty(run.status)||"Not recorded")}</div>`:""}</div>
+        <div class="notice section-gap"><p>${run?"Agent answers are recorded. Compare both judges on these same outputs.":"The next stage runs your actual agent on every case. Judge evaluation is a separate stage."}</p><button class="button ${run?"primary":""}" ${run?'data-tab="compare"':'data-action="run-agent"'}>${run?"Review comparison":"Run agent on cases"}</button></div>`);
+      updateControls();
+    }
+    function renderContext() {
+      if(!app.state)return;
+      const comp=comparison(),history=app.state.history||[];
+      const signature=JSON.stringify([comp?.run_id,comp?.status,comp?.started_at,history,app.historyId,app.historyLoading,app.state.agent?.name,cases().length]);
+      if(app.fingerprints.context===signature)return;
+      app.fingerprints.context=signature;
+      $("#comparison-context").innerHTML=`<div class="context-strip"><div class="context-main"><strong>${esc(app.history?(app.history.agent?.name||"Saved comparison"):app.state.agent?.name||"No agent configured")}</strong><span class="badge">${app.history?`${comp?.rows?.length||0} saved cases`:`${cases().length} cases`}</span>${comp?`<span class="badge ${comp.status==="completed"||comp.status==="complete"?"good":""}">${esc(pretty(comp.status)||"Recorded")}</span><span class="caption">${esc(when(comp.started_at))}</span>`:'<span class="caption">No comparison recorded</span>'}</div>
+        <div class="history-control"><label for="run-history">Run</label><select id="run-history" ${app.historyLoading||app.offline?"disabled":""}><option value="">${app.offline?"Captured run":"Current run"}</option>${history.map(h=>`<option value="${esc(h.run_id)}" ${app.historyId===h.run_id?"selected":""}>${esc(when(h.started_at))} / ${esc(text(h.run_id).slice(0,8))}</option>`).join("")}</select>${app.history?'<button class="button small" id="export-saved">Export saved</button>':""}</div></div>`;
+    }
+
+    function configurationScope() {
+      const frozen=app.history,comp=frozen||app.state?.comparison;
+      const suite=frozen?(frozen.suite||null):(app.state?.suite||null);
+      const generation=frozen?(frozen.generation||suite):(suite||comp?.generation);
+      const source=frozen?(frozen.agent||null):(app.state?.agent||null);
+      const config=frozen?(frozen.evaluation_config||null):(app.state?.evaluation_config||comp?.evaluation_config||null);
+      const savedRows=frozen?(frozen.rows||[]):(comp?.rows?.length?comp.rows:app.state?.agent_run?.rows||[]);
+      const savedCases=suite?.test_cases||(frozen?.test_cases)||[];
+      const caseMap=new Map(savedCases.map(item=>[text(item.id),{case_id:item.id,input:item.input,expected_output:item.expected_output,scenario_id:item.scenario_id}]));
+      savedRows.forEach(row=>caseMap.set(text(row.case_id),{...caseMap.get(text(row.case_id)),...row}));
+      return {frozen:Boolean(frozen),config,requestConfig:frozen?(frozen.evaluation_config||null):comp?.rows?.length?(comp.evaluation_config||null):config,source,suite,generation,cases:savedCases,rows:[...caseMap.values()],
+        rubric:frozen?(frozen.rubric||suite?.rubric||null):(suite?.rubric||comp?.rubric||null),runId:frozen?.run_id||comp?.run_id||null};
+    }
+    function configurationExpansion(title,value,key,description="") {
+      if(value===undefined||value===null)return `<div class="configuration-missing"><strong>${esc(title)}</strong><br>Not recorded.</div>`;
+      return `<details class="configuration-expand" data-state-key="${esc(key)}"><summary><span><strong>${esc(title)}</strong>${description?`<span class="caption">${esc(description)}</span>`:""}</span></summary><pre class="trace-code configuration-code" tabindex="0" aria-label="${esc(title)}">${esc(dataText(value))}</pre></details>`;
+    }
+    function configurationParameters(parameters) {
+      if(parameters===undefined||parameters===null)return '<p class="configuration-missing">Parameters not recorded. Provider defaults are not inferred.</p>';
+      if(typeof parameters!=="object"||Array.isArray(parameters))return configurationExpansion("Parameters",parameters,"config:parameters");
+      const entries=Object.entries(parameters);
+      return entries.length?`<dl class="configuration-parameters">${entries.map(([name,value])=>`<dt>${esc(name)}</dt><dd>${esc(dataText(value))}</dd>`).join("")}</dl>`:'<p class="configuration-missing">No explicit parameters stored ({}). Provider defaults are not inferred.</p>';
+    }
+    function configurationProvenance(config) {
+      return config?.provenance==="reconstructed"?"Reconstructed":config?.provenance==="recorded"?"Recorded":"Provenance not recorded";
+    }
+    function configurationBackend(key,backend,config) {
+      return `<section class="panel configuration-backend ${key==="llm"?"llm":""}"><div class="panel-heading"><h3 class="judge-label ${key==="jev"?"jev-text":"llm-text"}"><span class="judge-key ${key==="llm"?"llm":""}"></span>${judgeLabel(key)}</h3><span class="badge ${backend?"":"warn"}">${backend?`${configurationProvenance(config)} configuration`:"Not recorded"}</span></div><p class="configuration-model" style="margin-top:15px">Model: <strong>${esc(backend?.model||"Not recorded")}</strong></p>${configurationParameters(backend?.parameters)}${configurationExpansion("Request template",backend?.request_template,`config:${key}:template`,"Backend template only; not proof of the payload sent for a case.")}</section>`;
+    }
+    function recordedRequestCards(row,scopeKey="config",config=configurationScope().requestConfig) {
+      const provenance=config?.provenance;
+      return `<div class="configuration-request-grid">${["jev","llm"].map(key=>{
+        const payload=row?.judge_requests?.[key],present=payload!==undefined&&payload!==null;
+        const label=!present?"Not recorded":provenance==="reconstructed"?"Reconstructed payload":provenance==="recorded"?"Recorded payload":"Stored payload / provenance unknown";
+        const title=provenance==="reconstructed"?"Reconstructed request payload":provenance==="recorded"?"Original recorded request payload":"Stored request payload";
+        const explanation=provenance==="reconstructed"?"Rebuilt from saved evidence and adapter configuration; not a capture of the original outbound request. No new judging is implied.":provenance==="recorded"?"Original payload recorded for this case. Viewing does not resend it.":"Stored with this row, but capture provenance was not recorded. Viewing does not send it.";
+        return `<section><div class="configuration-request-heading"><h3 class="${key==="jev"?"jev-text":"llm-text"}">${judgeLabel(key)}</h3><span class="badge ${present&&provenance==="recorded"?"good":present&&provenance==="reconstructed"?"warn":""}">${esc(label)}</span></div>${present?configurationExpansion(title,payload,`${scopeKey}:${text(row.case_id)}:${key}:request`,explanation):'<p class="configuration-missing">Exact request not recorded for this case. No stored payload is available; a request template is not a case payload.</p>'}</section>`;
+      }).join("")}</div>`;
+    }
+    function configurationRunControl(scope) {
+      const history=app.state?.history||[];
+      return `<div class="context-strip"><div class="context-main"><strong>${esc(scope.frozen?"Saved comparison configuration":app.offline?"Captured evaluation configuration":"Current evaluation configuration")}</strong><span class="caption">${esc(scope.source?.name||"Agent not recorded")}</span>${scope.runId?`<span class="caption">Run ${esc(scope.runId)}</span>`:""}</div><div class="history-control"><label for="config-run-history">Run</label><select id="config-run-history" ${app.offline||app.historyLoading?"disabled":""}><option value="">${app.offline?"Captured run":"Current run"}</option>${history.map(run=>`<option value="${esc(run.run_id)}" ${app.historyId===run.run_id?"selected":""}>${esc(when(run.started_at))} / ${esc(text(run.run_id).slice(0,8))}</option>`).join("")}</select></div></div>`;
+    }
+    function renderConfiguration(force=false) {
+      if(!app.state)return;
+      const scope=configurationScope(),config=scope.config,rows=scope.rows;
+      if(!rows.some(row=>text(row.case_id)===app.configCaseId))app.configCaseId=rows.length?text(rows[0].case_id):"";
+      const signature=JSON.stringify([scope,app.configCaseId,app.historyId,app.state.history,app.historyLoading,app.dirty]);
+      if(!force&&app.fingerprints.config===signature)return;
+      app.fingerprints.config=signature;
+      const dims=Array.isArray(scope.rubric?.dimensions)?scope.rubric.dimensions:[];
+      const artifacts=Array.isArray(config?.artifacts)?config.artifacts:[];
+      const selected=rows.find(row=>text(row.case_id)===app.configCaseId);
+      const hashes=scope.suite?.source_hashes||scope.generation?.source_hashes||{
+        ...(scope.generation?.skill_hash?{skill_hash:scope.generation.skill_hash}:{}),
+        ...(scope.generation?.agent_hash?{agent_hash:scope.generation.agent_hash}:{}),
+        ...(scope.generation?.scenario_hash?{scenario_hash:scope.generation.scenario_hash}:{})};
+      const checks=checkCounts(rows),notes=Array.isArray(config?.notes)?config.notes:[];
+      replaceContent("#configuration-content",`
+        ${configurationRunControl(scope)}
+        ${config?.provenance==="reconstructed"?'<div class="notice warning" id="configuration-provenance-notice"><p><strong>Reconstructed configuration and payloads.</strong> These were rebuilt from saved evaluation evidence and adapter source. They are not recordings of the original outbound requests and do not represent a new judging run. See the configuration notes for the reconstruction method and source verification.</p></div>':config?`<div class="notice"><p>Configuration provenance: <strong>${esc(configurationProvenance(config))}</strong>. Each case payload uses the provenance saved with its own comparison.</p></div>`:""}
+        ${!config?`<div class="notice warning"><p>${scope.frozen?"Evaluation configuration was not recorded in this saved comparison. Only context and artifacts saved with that comparison are shown; current configuration is not substituted.":"Evaluation configuration has not been recorded. Saved agent context, rubric, and case data are shown below; exact backend settings and requests remain unknown unless separately recorded."}</p></div>`:""}
+        ${app.dirty&&!scope.frozen?'<div class="notice"><p>This inspector shows saved agent configuration. Unsaved edits on the Agent tab are not included.</p></div>':""}
+        <ol class="configuration-flow" aria-label="How the evaluation is assembled"><li><a href="#configuration-source">Source context<small>Code, instructions, knowledge</small></a></li><li><a href="#configuration-rubric">Rubric<small>${dims.length?`${dims.length} saved scoring dimensions`:"Scoring criteria"}</small></a></li><li><a href="#configuration-cases">Cases and checks<small>${rows.length} saved cases</small></a></li><li><a href="#configuration-judges">Judge inputs<small>Configuration, templates, requests</small></a></li></ol>
+        <div class="configuration-grid">
+          <section class="panel configuration-section" id="configuration-source"><div class="panel-heading"><div><h2>Source context</h2><p class="caption">The agent's code, instructions, and domain knowledge inform the evaluation.</p></div></div>
+            ${configurationExpansion("Agent source",scope.source?.source,"config:source","Saved source context; not a reconstructed generation request.")}
+            ${configurationExpansion("System instructions",scope.source?.system_prompt,"config:instructions")}
+            ${configurationExpansion("Domain knowledge / support policy",scope.source?.knowledge,"config:knowledge")}
+            ${configurationExpansion("Source hashes",Object.keys(hashes).length?hashes:undefined,"config:hashes","Recorded identifiers for the source used by this evaluation.")}
+          </section>
+          <section class="panel configuration-section" id="configuration-rubric"><div class="panel-heading"><div><h2>Rubric</h2><p class="caption">Dimensions, weights, and level descriptions define the scoring contract.</p></div><span class="badge blue">Threshold ${esc(pct(scope.rubric?.pass_threshold))}</span></div>
+            ${dims.length?dims.map((dim,index)=>configurationExpansion(pretty(dim.name),dim,`config:dimension:${index}`,`${text(dim.scale)}-point scale / ${pct(dim.weight)} weight`)).join(""):'<p class="configuration-missing">Rubric dimensions not recorded.</p>'}
+            ${configurationExpansion("Full saved rubric",scope.rubric,"config:rubric")}
+          </section>
+        </div>
+        <section class="panel section-gap configuration-section" id="configuration-cases"><div class="panel-heading"><div><h2>Cases and deterministic checks</h2><p class="caption">Inputs exercise the agent; saved expectations and checks define the behavior to inspect.</p></div><span class="badge">${rows.length} cases / ${checks.total} recorded checks</span></div>
+          ${rows.length?rows.map(row=>{
+            const definition=scope.cases.find(item=>text(item.id)===text(row.case_id));
+            const evidence={...(definition?{case_definition:definition}:{input:row.input,expected_output:row.expected_output,scenario_id:row.scenario_id}),...(Array.isArray(row.checks)?{recorded_checks:row.checks}:{checks_status:"Not recorded"})};
+            return configurationExpansion(`Case ${text(row.case_id)}`,evidence,`config:case:${text(row.case_id)}`,text(row.input).slice(0,140));
+          }).join(""):'<p class="configuration-missing">No cases recorded yet.</p>'}
+          ${scope.generation?.reference_provenance?`<p class="footnote" style="padding-top:12px">Expectations: ${esc(scope.generation.reference_provenance)}</p>`:""}
+        </section>
+        <section class="panel section-gap"><div class="panel-heading"><div><h2>Saved source and generated artifacts</h2><p class="caption">Inspect the paths and contents supplied with this evaluation configuration.</p></div><span class="badge">${artifacts.length} supplied artifacts</span></div>
+          ${artifacts.length?artifacts.map((artifact,index)=>configurationExpansion(artifact.path||`Artifact ${index+1}`,artifact.content,`config:artifact:${index}`,artifact.description||"Description not recorded.")).join(""):'<p class="configuration-missing">Artifact paths and contents not recorded in evaluation_config. The saved source, rubric, and cases above remain available.</p>'}
+        </section>
+        <section class="section-gap configuration-section" id="configuration-judges"><div class="page-heading" style="margin-bottom:14px"><div><h2>Judge configuration</h2><p class="subtitle">Saved or reconstructed model settings and request templates. Case payloads and their provenance appear separately below.</p></div></div><div class="configuration-grid">${configurationBackend("jev",config?.backends?.jev,config)}${configurationBackend("llm",config?.backends?.llm,config)}</div></section>
+        <section class="panel section-gap" aria-label="Per-case judge requests and provenance"><div class="panel-heading"><div><h2>Judge requests by case</h2><p class="caption">Recorded and reconstructed payloads are labeled separately. Reconstructed payloads are not original outbound recordings. Viewing makes no additional calls.</p></div></div><div class="panel-body"><div class="configuration-case-control" style="margin-bottom:16px"><label for="config-case">Case</label><select id="config-case" ${rows.length?"":"disabled"}>${rows.length?rows.map(row=>`<option value="${esc(row.case_id)}" ${text(row.case_id)===app.configCaseId?"selected":""}>${esc(row.case_id)} / ${esc(text(row.input).slice(0,80))}</option>`).join(""):'<option value="">No cases recorded</option>'}</select></div>${recordedRequestCards(selected,"config",scope.requestConfig)}</div></section>
+        ${notes.length?`<section class="panel section-gap"><div class="panel-heading"><h2>Configuration notes</h2></div><ul class="configuration-notes">${notes.map(note=>`<li>${esc(dataText(note))}</li>`).join("")}</ul></section>`:""}`);
+    }
+    function metricNumber(value,label,unit="") {return `<div class="metric-main"><span class="metric-number ${value===null?"unrecorded":""}">${value===null?"Not recorded":esc(label)}</span>${value===null?"":`<span class="metric-unit">${esc(unit)}</span>`}</div>`;}
+    function rateBlock(key,summary) {
+      const rates=comparison()?.pricing?.[key]||(app.history?{}:app.state.pricing?.[key]||{});
+      return `<div class="pricing-block"><h3 class="judge-label ${key==="jev"?"jev-text":"llm-text"}"><span class="judge-key ${key==="llm"?"llm":""}"></span>${judgeLabel(key)}</h3><dl class="key-values">
+        <dt>Input / 1M tokens</dt><dd>${esc(money(rates.input_usd_per_million))}</dd><dt>Output / 1M tokens</dt><dd>${esc(money(rates.output_usd_per_million))}</dd>
+        <dt>Input / output tokens</dt><dd>${esc(num(summary.input_tokens,0))} / ${esc(num(summary.output_tokens,0))}</dd><dt>Judge wall time</dt><dd>${esc(ms(summary.wall_ms))}</dd><dt>Median request</dt><dd>${esc(ms(summary.p50_latency_ms))}</dd><dt>Model</dt><dd>${esc(summary.model||"Not recorded")}</dd></dl>
+        <p>Rate source: ${esc(rates.source||"Not recorded")}<br>Verified: ${esc(when(rates.verified_at))}</p></div>`;
+    }
+    function renderCompare(force=false) {
+      if(!app.state)return;
+      renderContext();
+      const comp=comparison();
+      const signature=JSON.stringify([comp,app.historyId,app.state.pricing,app.state.agent_run?.wall_ms,app.state.agent_run?.cost_usd,app.state.suite?.rubric]);
+      if(!force && app.fingerprints.compare===signature)return;
+      app.fingerprints.compare=signature;
+      if(!comp){
+        $("#compare-content").innerHTML=`<div class="panel empty">${emptyIcon}<h2>Give both judges the same evidence.</h2><p>${agentRows().length?"Agent answers are ready. Run Jev and the live LLM judge to measure latency, estimated cost, and scoring disagreements.":"Generate an eval set and run the agent first. The comparison will use actual recorded answers, with a result for each judge and case."}</p><div class="button-group"><button class="button primary" ${agentRows().length?'data-action="compare"':'data-action="run-all"'}>${agentRows().length?"Compare judges":"Run full evaluation"}</button><button class="button" data-tab="${cases().length?"suite":"agent"}">${cases().length?"Inspect eval set":"Configure agent"}</button></div><p class="caption">No judge requests are sent until you start a run.</p></div>`;
+        updateControls();return;
+      }
+      const summary=comp.summary||{},jev=summary.jev||{},llm=summary.llm||{},rows=comp.rows||[];
+      const nPaired=rows.filter(r=>canScore(r.judges?.jev)&&canScore(r.judges?.llm)).length;
+      const nDisagreements=rows.filter(disagrees).length,nThreshold=rows.filter(thresholdDisagreement).length;
+      const a=jev.mean_latency_ms,b=llm.mean_latency_ms,max=Math.max(finite(a)?a:0,finite(b)?b:0);
+      const speed=finite(summary.speedup)?summary.speedup:null;
+      const savings=finite(summary.cost_savings_pct)?summary.cost_savings_pct:null;
+      const gap=finite(summary.mean_score_gap)?summary.mean_score_gap:null;
+      const agentRun=comp.agent_run||(app.history?null:app.state.agent_run);
+      const generation=comp.generation||(app.history?null:app.state.suite);
+      const subject=comp.agent||(app.history?null:app.state.agent);
+      const checkSummary=checkCounts(rows);
+      const contractReferences=Boolean(generation?.reference_provenance||rows.some(row=>row.scenario_id));
+      const referenceNote=contractReferences?"Expected behavior comes from authored scenario contracts backed by local fixtures, not human quality labels.":"This older run uses generated, uncalibrated reference answers.";
+      const sameModel=generation?.generator_model&&generation.generator_model===subject?.model&&subject.model===llm.model;
+      const modelNote=sameModel?`The same ${subject.model} model generates the suite, runs the agent, and serves as the LLM judge.`:`Generator: ${generation?.generator_model||"Not recorded"}. Agent: ${subject?.model||"Not recorded"}. LLM judge: ${llm.model||"Not recorded"}.`;
+      replaceContent("#compare-content",`
+        ${app.history?`<div class="notice"><p>Viewing a saved comparison. ${rubric()?"The saved rubric is used for case scores.":"This snapshot has no rubric; raw dimension scores are available in the evidence drawer."} “Export current JSON” exports the current server state.</p></div>`:""}
+        <div class="comparison-overview" aria-label="Judge comparison summary">
+          <article class="metric"><h2 class="metric-title">Observed judge speed</h2>${metricNumber(speed,speed===null?"":`${num(speed,1)}×`,"LLM / Jev")}
+            <p class="metric-note">${speed===null?"Speedup is reported after both judges complete successfully.":speed>=1?"Jev speedup based on total judge wall time.":"Jev was slower in this run; ratio uses total judge wall time."}</p>
+            <div class="latency-chart"><p class="caption">Mean request latency</p>${[["jev",a],["llm",b]].map(([key,value])=>`<div class="latency-line"><span class="${key==="jev"?"jev-text":"llm-text"}">${key==="jev"?"Jev":"LLM"}</span><div class="latency-bar" role="img" aria-label="${judgeLabel(key)} mean latency: ${esc(ms(value))}">${finite(value)&&max>0?`<div class="latency-fill ${key==="llm"?"llm":""}" style="width:${Math.max(0,value/max*100)}%"></div>`:""}</div><span class="latency-value">${finite(value)?esc(ms(value)):"—"}</span></div>`).join("")}</div>
+          </article>
+          <article class="metric"><h2 class="metric-title">Estimated judge cost</h2>${metricNumber(savings,savings===null?"":`${num(Math.abs(savings),1)}%`,savings!==null&&savings<0?"higher for Jev":"lower for Jev")}
+            <p class="metric-note">Token-based estimates at the rates below.<br>Agent and generation costs excluded.</p>
+            <div class="comparison-pair"><span class="judge-label jev-text"><span class="judge-key"></span>Jev</span><strong class="numeric">${esc(money(jev.cost_usd))}</strong><span class="judge-label llm-text"><span class="judge-key llm"></span>LLM judge</span><strong class="numeric">${esc(money(llm.cost_usd))}</strong></div>
+          </article>
+          <article class="metric"><h2 class="metric-title">Scoring agreement</h2>${metricNumber(nPaired?nDisagreements:null,String(nDisagreements),`/ ${nPaired} paired cases differ`)}
+            <p class="metric-note">${finite(gap)?`${esc(num(Math.abs(gap)*100,1))} percentage points mean weighted score gap.`:"Mean weighted score gap not recorded."}<br>Agreement is not a measure of correctness.</p>
+            <p class="caption" style="margin-bottom:8px">Mean rubric score / overall pass rate</p><div class="comparison-pair"><span class="judge-label jev-text"><span class="judge-key"></span>Jev</span><strong class="numeric">${esc(pct(jev.weighted_score))} / ${esc(pct(jev.pass_rate))}</strong><span class="judge-label llm-text"><span class="judge-key llm"></span>LLM judge</span><strong class="numeric">${esc(pct(llm.weighted_score))} / ${esc(pct(llm.pass_rate))}</strong></div>
+          </article>
+        </div>
+        <div class="method-note"><span>Suite generation: ${esc(ms(generation?.latency_ms))} · Generation estimate: ${esc(money(generation?.cost_usd))}</span><span>Agent wall time: ${esc(ms(agentRun?.wall_ms))} · Agent estimate: ${esc(money(agentRun?.cost_usd))}</span><span>${esc(activityText(agentRun,rows))} · Failed checks: ${checkSummary.recorded?checkSummary.failed:"Not recorded"}</span></div>
+        <div class="notice methodology"><p><strong>One trial, ${rows.length} cases, one agent.</strong> ${esc(modelNote)} ${esc(referenceNote)} Judge scores remain uncalibrated; agreement is not human accuracy. The LLM judge produces explanations; Jev does not. Both judges receive the same rubric and saved evidence, with sequential requests: one per case per judge.</p><p style="margin-top:7px"><strong>Overall pass = rubric pass and deterministic checks pass.</strong> A failed check can fail both judges despite high rubric scores. Older runs without check records retain their recorded outcomes.</p></div>
+        <div class="panel"><div class="panel-heading"><div><h2>Case-by-case evidence</h2><p class="caption" style="margin-top:4px">Weighted scores on a common 0–100% scale. Select a case to inspect the judgments.</p></div><span class="badge">${esc(num(jev.n_scored,0))} Jev / ${esc(num(llm.n_scored,0))} LLM scored</span></div>
+          <div class="quality-callout">${icon}<p>${nPaired?`${nDisagreements} of ${nPaired} paired cases have different dimension scores. ${nThreshold} recorded overall pass/fail splits.`:"Paired judge scores have not been recorded yet."} ${checkSummary.recorded?`${checkSummary.failed} failed checks across ${checkSummary.failed_cases} cases; check data recorded for ${checkSummary.recorded} of ${rows.length} cases.`:"Deterministic checks not recorded."} Inspect the execution evidence alongside the rubric scores.</p></div>
+          <div class="table-controls"><label><input type="checkbox" id="filter-disagreements" ${app.onlyDisagreements?"checked":""}> Disagreements only</label><input type="text" class="search-field" id="case-search" aria-label="Search cases and agent answers" placeholder="Search cases or answers" value="${esc(app.search)}"></div>
+          <div class="table-wrap"><table><caption class="sr-only">Compare rubric scores, request latency, and overall outcomes after deterministic checks</caption><thead><tr><th scope="col">Case / customer request</th><th scope="col" class="jev-text">Jev rubric</th><th scope="col" class="llm-text">LLM rubric</th><th scope="col" id="gap-column" aria-sort="${app.descending?"descending":"ascending"}"><button class="sort-button" id="sort-gap">Score gap <span aria-hidden="true">${app.descending?"↓":"↑"}</span></button></th><th scope="col">Latency · Jev / LLM</th><th scope="col">Overall outcome</th></tr></thead><tbody id="comparison-rows"></tbody></table></div><div class="table-count" id="comparison-count"></div>
+        </div>
+        <details class="panel section-gap"><summary class="details-heading">Rates, usage & measurement notes</summary><div class="pricing-grid">${rateBlock("jev",jev)}${rateBlock("llm",llm)}</div><p class="footnote">Estimated cost = (input tokens × input rate + output tokens × output rate) / 1,000,000. Missing usage or rates remains “Not recorded.” Request latency and judge wall time are separate from agent execution. Scores use Σ(weight × score / dimension scale). A disagreement means any dimension score differs; it does not establish which judge is correct. Jev does not provide textual explanations.</p></details>`);
+      renderRows();updateControls();
+      if($("#evidence-drawer").open&&app.drawerSource==="compare")renderDrawer();
+    }
+    function scoreCell(result,key) {
+      if(result?.error)return '<span class="badge error">Judge error</span>';
+      const score=weighted(result);
+      if(score===null)return `<span class="muted">${canScore(result)?"See dimensions":result?"Not recorded":"Pending"}</span>`;
+      return `<span class="score-value ${key==="jev"?"jev-text":"llm-text"}">${esc(pct(score))}</span><div class="score-track ${key==="llm"?"llm":""}" aria-hidden="true"><span style="width:${Math.max(0,Math.min(100,score*100))}%"></span></div>`;
+    }
+    function renderRows() {
+      const tbody=$("#comparison-rows");if(!tbody)return;
+      const rows=visibleRows();
+      tbody.innerHTML=rows.length?rows.map(row=>{
+        const j=row.judges?.jev,l=row.judges?.llm,gap=rowGap(row),error=j?.error||l?.error,failed=checkCounts([row]).failed;
+        const a=overallPass(j),b=overallPass(l);
+        const outcome=error?'<span class="badge error">Judge error</span>':!canScore(j)||!canScore(l)?'<span class="badge">Pending</span>':thresholdDisagreement(row)?'<span class="badge warn">Overall pass / fail split</span>':a===true&&b===true?'<span class="badge good">Both pass</span>':a===false&&b===false?'<span class="badge error">Both fail</span>':'<span class="badge">Outcome not recorded</span>';
+        const tag=outcome+(failed?`<br><span class="badge error" style="margin-top:5px">${failed} failed check${failed===1?"":"s"}</span>`:"");
+        return `<tr><td class="case-cell"><button class="case-open" data-case="${esc(row.case_id)}" data-source="compare"><span class="case-id">${esc(row.case_id)}</span><span class="case-input">${esc(row.input)}</span></button></td><td class="score-cell">${scoreCell(j,"jev")}</td><td class="score-cell">${scoreCell(l,"llm")}</td><td class="numeric">${gap===null?"Not recorded":`${esc(num(gap*100,1))} pp`}</td><td class="numeric"><span class="jev-text">${j?esc(ms(j.latency_ms)):"Pending"}</span><span class="muted"> / </span><span class="llm-text">${l?esc(ms(l.latency_ms)):"Pending"}</span></td><td>${tag}</td></tr>`;
+      }).join(""):`<tr><td colspan="6" class="empty" style="padding:30px"><strong>${app.search||app.onlyDisagreements?"No cases match this view.":"No judge results recorded yet."}</strong><p style="margin-bottom:0">${app.search||app.onlyDisagreements?"Clear the search or turn off the disagreement filter to see more cases.":"Start a comparison to collect results for each case."}</p></td></tr>`;
+      $("#comparison-count").textContent=`${rows.length} of ${comparison()?.rows?.length||0} cases shown · ${app.descending?"Largest":"Smallest"} weighted score gap first · pp = percentage points`;
+      $("#gap-column").setAttribute("aria-sort",app.descending?"descending":"ascending");
+      $("#sort-gap").innerHTML=`Score gap <span aria-hidden="true">${app.descending?"↓":"↑"}</span>`;
+    }
+    function judgeEvidence(result,key,row) {
+      let body="";
+      if(!result)body='<div class="judge-dimension muted">Pending. This judge has not returned a result.</div>';
+      else if(result.error)body=`<div class="judge-dimension"><span class="badge error">${esc(result.error)}</span><p class="explanation">${esc(result.reason||result.message||"The judge request failed. Review the server logs and retry the comparison.")}</p></div>`;
+      else {
+        const dims=dimensions().length?dimensions():Object.keys(result.scores||{}).map(name=>({name,scale:null}));
+        body=dims.map(dim=>{
+          const detail=result.details?.[dim.name]||{},score=result.scores?.[dim.name];
+          const confidence=finite(detail.confidence)?pct(detail.confidence):detail.confidence||"Not recorded";
+          return `<div class="judge-dimension"><div class="dimension-score"><strong>${esc(pretty(dim.name))}</strong><span class="numeric">${esc(num(score,2))} / ${esc(dim.scale||"scale not recorded")}</span></div><span class="confidence">Confidence: ${esc(confidence)}</span>
+            ${key==="jev"?'<p class="explanation muted">Explanation unavailable for Jev.</p>':`<p class="explanation">${esc(detail.reasoning||"Explanation not recorded.")}</p>${detail.evidence?.length?`<span class="explanation-label">Evidence</span>${Array.isArray(detail.evidence)?`<ul class="explanation-list">${detail.evidence.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:`<p class="explanation">${esc(detail.evidence)}</p>`}`:""}${detail.suggestion?`<span class="explanation-label">Suggestion</span><p class="explanation" style="margin-top:0">${esc(detail.suggestion)}</p>`:""}`}</div>`;
+        }).join("");
+        if(!dims.length)body='<div class="judge-dimension muted">Dimension scores not recorded.</div>';
+      }
+      return `<section class="judge-evidence ${key==="llm"?"llm":""}"><div class="judge-evidence-head"><h3 class="judge-label ${key==="jev"?"jev-text":"llm-text"}"><span class="judge-key ${key==="llm"?"llm":""}"></span>${judgeLabel(key)}</h3><dl class="key-values"><dt>Rubric score</dt><dd>${esc(pct(weighted(result)))}</dd><dt>Rubric pass</dt><dd>${passBadge(rubricPass(result))}</dd><dt>Checks pass</dt><dd>${passBadge(checksPass(result,row))}</dd><dt>Overall pass</dt><dd>${passBadge(overallPass(result))}</dd><dt>Request latency</dt><dd>${esc(ms(result?.latency_ms))}</dd><dt>Estimated cost</dt><dd>${esc(money(result?.cost_usd))}</dd><dt>Model</dt><dd>${esc(result?.resolved_model_id||result?.model_id||"Not recorded")}</dd></dl></div>${body}${key==="llm"&&result?.overall_reasoning?`<div class="judge-dimension"><h3>Overall reasoning</h3><p class="explanation">${esc(result.overall_reasoning)}</p></div>`:""}</section>`;
+    }
+    function checkEvidence(row) {
+      const checks=Array.isArray(row.checks)?row.checks:[],passed=checks.filter(check=>check?.passed===true).length,failed=checks.filter(check=>check?.passed===false).length;
+      return `<section class="evidence-block" aria-label="Deterministic checks"><div class="execution-heading"><h3>Deterministic checks</h3>${checks.length?`<span class="badge ${failed?"error":passed===checks.length?"good":""}">${passed} / ${checks.length} passed${failed?` · ${failed} failed`:""}</span>`:""}</div>
+        ${checks.length?`<div class="table-wrap"><table class="checks-table"><caption class="sr-only">Recorded deterministic checks with expected and actual values</caption><thead><tr><th scope="col">Check</th><th scope="col">Result</th><th scope="col">Expected</th><th scope="col">Actual</th></tr></thead><tbody>${checks.map(check=>`<tr><td class="check-name">${esc(check?.name||"Unnamed check")}</td><td><span class="badge ${check?.passed===true?"good":check?.passed===false?"error":""}">${check?.passed===true?"Pass":check?.passed===false?"Fail":"Not recorded"}</span></td><td class="check-value">${esc(dataText(check?.expected))}</td><td class="check-value">${esc(dataText(check?.actual))}</td></tr>`).join("")}</tbody></table></div><p class="caption" style="margin-top:10px">Recorded checks are separate from judge scores. A high judge score does not erase a failed check.</p>`:'<p class="caption">No deterministic checks were recorded for this case.</p>'}</section>`;
+    }
+    function traceEvidence(row) {
+      const trace=Array.isArray(row.trace)?row.trace:null,counts=executionCounts(row);
+      const timeline=trace?.map((event,index)=>{
+        const type=event?.type||"unknown",tool=type==="tool_call",memory=tool&&/memory|memories|recall/i.test(text(event.name));
+        const position=[event?.turn!=null?`User turn ${text(event.turn)}`:null,event?.step!=null?`Step ${text(event.step)}`:null].filter(Boolean).join(" / ");
+        const stateKey=`${text(row.case_id)}:trace:${text(event?.tool_call_id||index)}`;
+        if(type==="user_turn")return `<li><div class="trace-user"><span class="trace-step">${esc(position||"User turn")}</span><div class="prose">${esc(dataText(event.input??event.arguments?.input))}</div></div></li>`;
+        let body,title;
+        if(tool) {
+          title=event.name||"Unnamed tool";
+          body=`<div class="trace-pair"><div><h4>Arguments</h4><pre class="trace-code" tabindex="0" aria-label="Arguments for ${esc(title)}">${esc(dataText(event.arguments))}</pre></div><div><h4>${memory?"Memory result / retrieved entries":"Tool result"}</h4><pre class="trace-code" tabindex="0" aria-label="Result from ${esc(title)}">${esc(dataText(event.result))}</pre></div></div>${event.tool_call_id?`<p class="caption" style="margin-top:9px;overflow-wrap:anywhere">Tool call ID: ${esc(event.tool_call_id)}</p>`:""}`;
+        } else if(type==="model_call") {
+          title="Model call";
+          body=`<dl class="key-values"><dt>Input tokens</dt><dd>${esc(num(event.usage?.input_tokens??event.usage?.prompt_tokens,0))}</dd><dt>Output tokens</dt><dd>${esc(num(event.usage?.output_tokens??event.usage?.completion_tokens,0))}</dd></dl>${event.usage?`<details class="tool-state" data-state-key="${esc(stateKey)}:usage"><summary>Recorded usage</summary><pre class="trace-code" tabindex="0" aria-label="Model call usage">${esc(dataText(event.usage))}</pre></details>`:""}`;
+        } else {
+          title=pretty(type)||"Trace event";
+          body=`<pre class="trace-code" tabindex="0" aria-label="Recorded event">${esc(dataText(event))}</pre>`;
+        }
+        return `<li class="${memory?"trace-memory":tool?"trace-tool":""}"><details class="trace-event" data-state-key="${esc(stateKey)}"><summary><strong>${esc(title)}</strong>${memory?'<span class="badge purple">Memory</span>':tool?'<span class="badge blue">Tool</span>':""}<span class="trace-step">${esc(position)}</span><span class="trace-time">${esc(ms(event?.latency_ms))}</span></summary><div class="trace-body">${body}</div></details></li>`;
+      }).join("");
+      return `<section class="evidence-block" aria-label="Recorded execution trace"><div class="execution-heading"><h3>Execution trace</h3><span class="caption">${counts.user_turns===null?"User turns not recorded":`${num(counts.user_turns,0)} user turns`}</span></div>
+        ${timeline?`<p class="caption" style="margin-bottom:14px">Events appear in recorded order. Expand a tool call to inspect its arguments and result, including retrieved memory entries.</p><ol class="trace-list">${timeline}</ol>`:`<p class="caption">${trace?"The recorded trace is empty.":"Execution trace not recorded. Older runs still show their saved answers and judge scores."}</p>`}
+        ${Object.prototype.hasOwnProperty.call(row,"tool_state")?`<details class="tool-state" data-state-key="${esc(row.case_id)}:tool-state"><summary>Final case-scoped tool and memory state</summary><pre class="trace-code" tabindex="0" aria-label="Final case-scoped tool and memory state">${esc(dataText(row.tool_state))}</pre></details>`:""}</section>`;
+    }
+    function turnOutputEvidence(row) {
+      if(!Array.isArray(row.turn_outputs)||!row.turn_outputs.length)return "";
+      return `<section class="evidence-block" aria-label="Recorded conversation outputs"><div class="execution-heading"><h3>Conversation outputs</h3><span class="caption">${row.turn_outputs.length} recorded outputs</span></div><p class="caption" style="margin-bottom:10px">Answers from each recorded user turn or fresh-session follow-up.</p>${row.turn_outputs.map((output,index)=>`<details class="tool-state" data-state-key="${esc(row.case_id)}:output:${index}"><summary>${output?.turn!=null?`Turn ${esc(output.turn)}`:`Output ${index+1}`}</summary><pre class="trace-code" tabindex="0" aria-label="Recorded conversation output ${index+1}">${esc(dataText(output))}</pre></details>`).join("")}</section>`;
+    }
+    function executionEvidence(row) {
+      const counts=executionCounts(row),checks=Array.isArray(row.checks)?row.checks:null;
+      const values=[["Tool calls",counts.tool_calls],["Model turns",counts.model_calls],["Checks recorded",checks?checks.length:null]];
+      return `<dl class="activity-summary" aria-label="Recorded agent activity">${values.map(([label,value])=>`<div><dt>${label}</dt><dd class="${value===null?"unrecorded":""}">${esc(num(value,0))}</dd></div>`).join("")}</dl><p class="caption" style="margin:-4px 0 15px">Model turns count recorded model calls, including calls that select tools. Tool calls count recorded executions.</p>${turnOutputEvidence(row)}${checkEvidence(row)}${traceEvidence(row)}`;
+    }
+    function drawerRows() {return app.drawerSource==="suite"?cases():visibleRows();}
+    function renderDrawer() {
+      let row,reference;
+      if(app.drawerSource==="suite") {
+        reference=cases().find(c=>text(c.id)===app.drawerCase);
+        const actual=agentRows().find(r=>text(r.case_id)===app.drawerCase);
+        if(reference)row={case_id:reference.id,input:reference.input,expected_output:reference.expected_output,scenario_id:reference.scenario_id,...actual};
+      } else row=(comparison()?.rows||[]).find(r=>text(r.case_id)===app.drawerCase);
+      if(!row){$("#evidence-drawer").close();return;}
+      $("#drawer-title").textContent=`Case ${row.case_id}`;
+      $("#drawer-kicker").textContent=app.drawerSource==="suite"?"Generated case / recorded agent answer":"Shared evidence / independent judgments";
+      const list=drawerRows(),index=list.findIndex(r=>text(r.case_id??r.id)===app.drawerCase);
+      const contractReference=Boolean(row.scenario_id);
+      replaceContent("#drawer-content",`
+        ${reference?`<div class="button-group" style="margin-bottom:14px"><span class="badge">${esc(pretty(reference.metadata?.category)||"Category not recorded")}</span><span class="badge">${esc(pretty(reference.metadata?.difficulty)||"Difficulty not recorded")}</span></div>`:""}
+        ${contractReference?`<p class="caption" style="margin-bottom:12px">Scenario contract: ${esc(row.scenario_id)} · Expectations are authored against synthetic local fixtures, not human quality labels.</p>`:""}
+        <div class="evidence-block"><h3>Customer input</h3><div class="prose">${esc(row.input)||"Not recorded"}</div></div>
+        <div class="answer-pair"><div class="evidence-block"><h3>Actual agent answer</h3><div class="prose">${row.agent_output==null?"Pending — run the agent to record an answer.":esc(row.agent_output)||"(Empty answer)"}</div>${row.agent_metadata?.error?`<p class="explanation"><span class="badge error">Agent error</span> ${esc(row.agent_metadata.error)}</p>`:""}</div><div class="evidence-block"><h3>${contractReference?"Expected behavior / scenario contract":"Expected answer / reference"}</h3><div class="prose">${esc(row.expected_output)||"Not recorded"}</div></div></div>
+        ${executionEvidence(row)}
+        <section class="evidence-block"><div class="execution-heading"><h3>Judge requests and provenance</h3></div>${recordedRequestCards(row,"drawer",app.drawerSource==="compare"?comparison()?.evaluation_config:app.state?.evaluation_config)}</section>
+        ${row.judges?`<p class="caption">Overall pass requires both rubric pass and deterministic checks pass. Older runs may omit check records.</p><div class="judge-columns">${judgeEvidence(row.judges.jev,"jev",row)}${judgeEvidence(row.judges.llm,"llm",row)}</div>`:'<p class="caption">Judges will evaluate the recorded execution evidence against this scenario and the generated rubric.</p>'}
+        <div class="drawer-nav"><button class="button small" data-drawer-step="-1" ${index<=0?"disabled":""}>Previous case</button><span>${index>=0?`${index+1} of ${list.length}`:"Case not in filtered view"}</span><button class="button small" data-drawer-step="1" ${index<0||index>=list.length-1?"disabled":""}>Next case</button></div>`);
+    }
+    function openDrawer(id,source) {
+      app.drawerCase=id;app.drawerSource=source;renderDrawer();
+      if(!$("#evidence-drawer").open)$("#evidence-drawer").showModal();
+      $("#evidence-drawer").scrollTop=0;
+    }
+    async function loadHistory(id) {
+      if(!id){app.history=null;app.historyId="";app.configCaseId="";app.fingerprints.context="";renderCompare(true);renderConfiguration(true);return;}
+      app.historyLoading=true;renderContext();
+      try {const payload=await api(`/api/runs/${encodeURIComponent(id)}`);app.history=payload.comparison||payload;app.historyId=id;if(!Array.isArray(app.history.rows))throw new Error("The saved run did not contain comparison rows.");renderCompare(true);}
+      catch(error){app.history=null;app.historyId="";showError(`Could not load saved run: ${error.message}`);}
+      finally{app.historyLoading=false;app.configCaseId="";app.fingerprints.context="";renderContext();renderConfiguration(true);}
+    }
+    async function saveAgent(event) {
+      event.preventDefault();if(app.offline){showError("This HTML snapshot is read-only. Open the live workbench to edit the agent.");return;}if(isBusy()||app.saving)return;
+      if(!$("#agent-form").reportValidity())return;
+      const body={name:$("#agent-name").value.trim(),system_prompt:$("#agent-prompt").value.trim(),knowledge:$("#agent-knowledge").value};
+      if(!body.name||!body.system_prompt||!body.knowledge.trim()){showError("Enter an agent name, system instructions, and support knowledge before saving.");return;}
+      app.saving=true;clearError();renderAgent();updateControls();
+      try {await api("/api/agent",{method:"POST",body:JSON.stringify(body)});app.dirty=false;await refresh();showToast("Agent saved. Generate an eval set from these instructions.");}
+      catch(error){showError(`Agent was not saved: ${error.message}`);}
+      finally {app.saving=false;renderAgent();updateControls();}
+    }
+    async function startAction(action) {
+      if(app.offline){showError("This HTML snapshot is read-only. Open the live workbench to run an evaluation.");return;}
+      if(isBusy()||app.dirty)return;
+      app.pending=true;app.history=null;app.historyId="";clearError();renderStatus();updateControls();
+      if(action==="generate"||action==="run-agent")setTab("suite");
+      if(action==="compare"||action==="run-all")setTab("compare");
+      try {await api(`/api/${action}`,{method:"POST",body:"{}"});showToast({generate:"Generating a rubric and 10 test cases.","run-agent":"Running the agent on the eval set.",compare:"Comparing Jev and the live LLM judge.","run-all":"Full evaluation started."}[action]);}
+      catch(error){showError(`Could not start ${pretty(action.replace(/-/g," "))}: ${error.message}`);}
+      finally {app.pending=false;await refresh();schedulePoll();}
+    }
+    function render() {renderAgent();renderStatus();renderSuite();renderCompare();if(app.tab==="config")renderConfiguration();updateControls();if($("#evidence-drawer").open&&app.drawerSource==="suite")renderDrawer();}
+    async function refresh() {
+      if(app.pollBusy)return;
+      app.pollBusy=true;
+      try {
+        const state=await api("/api/state");
+        if(!state||typeof state!=="object"||!state.agent)throw new Error("The state response is missing the agent configuration.");
+        app.state=state;
+        if(app.connectionError)clearError();
+        if(!app.initialized){app.initialized=true;const requested=(window.location?.hash||"").slice(1);setTab(["agent","suite","compare","config"].includes(requested)?requested:state.comparison?.rows?.length?"compare":"agent");}
+        render();
+      } catch(error){$("#connection").textContent=app.offline?"Snapshot unavailable":"Server unavailable";showError(app.offline?error.message:`Cannot connect to the demo server. ${error.message}`,!app.offline);}
+      finally {app.pollBusy=false;schedulePoll();}
+    }
+    function schedulePoll() {clearTimeout(app.polling);if(!app.offline)app.polling=setTimeout(refresh,isBusy()?1000:app.connectionError?5000:4000);}
+    document.addEventListener("click",event=>{
+      if(event.target.closest("#export-html")){exportHTML();return;}
+      if(event.target.closest("#export-link")&&app.offline){event.preventDefault();if(app.state)downloadFile(JSON.stringify(snapshotState(app.state),null,2),"application/json","eval-layer-snapshot.json");return;}
+      const tab=event.target.closest("[data-tab]");if(tab){setTab(tab.dataset.tab);return;}
+      const action=event.target.closest("[data-action]");if(action&&!action.disabled){startAction(action.dataset.action);return;}
+      const row=event.target.closest("[data-case]");if(row){openDrawer(row.dataset.case,row.dataset.source);return;}
+      const step=event.target.closest("[data-drawer-step]");if(step&&!step.disabled){const rows=drawerRows(),index=rows.findIndex(r=>text(r.case_id??r.id)===app.drawerCase),next=rows[index+Number(step.dataset.drawerStep)];if(next)openDrawer(text(next.case_id??next.id),app.drawerSource);return;}
+      if(event.target.closest("#sort-gap")){app.descending=!app.descending;renderRows();}
+      if(event.target.closest("#export-saved")&&app.history){const blob=new Blob([JSON.stringify(app.history,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`comparison-${app.historyId.replace(/[^a-zA-Z0-9_-]/g,"_")}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+    });
+    document.addEventListener("change",event=>{
+      if(event.target.id==="filter-disagreements"){app.onlyDisagreements=event.target.checked;renderRows();}
+      if(event.target.id==="run-history"||event.target.id==="config-run-history")loadHistory(event.target.value);
+      if(event.target.id==="config-case"){app.configCaseId=event.target.value;renderConfiguration(true);}
+    });
+    document.addEventListener("input",event=>{
+      if(event.target.closest("#agent-form")&&!app.offline){app.dirty=true;$("#save-status").textContent="Unsaved changes";$("#save-status").className="badge warn";$("#edit-help").textContent="Saving changes clears the current eval set and outputs. Saved runs stay in history.";updateControls();}
+      if(event.target.id==="case-search"){app.search=event.target.value;renderRows();}
+    });
+    $(".workflow").addEventListener("keydown",event=>{
+      const tabs=$$(".workflow [role=tab]"),index=tabs.indexOf(document.activeElement);if(index<0)return;
+      let next;if(["ArrowDown","ArrowRight"].includes(event.key))next=(index+1)%tabs.length;else if(["ArrowUp","ArrowLeft"].includes(event.key))next=(index+tabs.length-1)%tabs.length;else if(event.key==="Home")next=0;else if(event.key==="End")next=tabs.length-1;else return;
+      event.preventDefault();setTab(tabs[next].dataset.tab,true);
+    });
+    $("#agent-form").addEventListener("submit",saveAgent);
+    $("#close-drawer").addEventListener("click",()=>$("#evidence-drawer").close());
+    $("#evidence-drawer").addEventListener("close",()=>{const trigger=$$("[data-case]").find(button=>button.dataset.case===app.drawerCase&&button.dataset.source===app.drawerSource);if(trigger)trigger.focus({preventScroll:true});});
+    $("#evidence-drawer").addEventListener("click",event=>{if(event.target===$("#evidence-drawer")){const bounds=event.target.getBoundingClientRect();if(event.clientX<bounds.left||event.clientX>bounds.right)event.target.close();}});
+    $("#retry-connection").addEventListener("click",()=>{clearError();refresh();});
+    window.addEventListener("beforeunload",event=>{if(app.dirty){event.preventDefault();event.returnValue="";}});
+    document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!app.offline)refresh();});
+    initializeSnapshotMode();updateControls();refresh();
+  </script>
+</body>
+</html>
