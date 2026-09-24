@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from demo.agent import DEFAULT_INSTRUCTIONS, run as run_agent_case
 from demo.scenarios import scenario_contracts, attach_contracts, check_execution
+from scripts.bedrock_judge import evaluate as evaluate_bedrock
 from scripts.evaluation_config import evaluation_config, judge_requests
 from scripts.llm_judge import complete, evaluate as evaluate_llm, estimate_cost
 from scripts.jev_judge import evaluate as evaluate_jev, build_request
@@ -33,7 +34,7 @@ def dumps(value): return json.dumps(value, ensure_ascii=False, allow_nan=False)
 
 class Workbench:
     def __init__(self, directory, pricing, model):
-        if pricing['llm'].get('model') != model:
+        if pricing.get('agent',pricing['llm']).get('model') != model:
             raise ValueError('Set demo/pricing.json to the selected model before running cost comparisons.')
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -165,7 +166,7 @@ Do not penalize an agent for refusing tool actions outside its permissions.
         cases=attach_contracts(cases)
         suite={'rubric':rubric,'test_cases':cases,'generated_at':now(),'generator_model':response.get('resolved_model_id') or agent['model'],
                'skill_hash':hashlib.sha256(skill.encode()).hexdigest(),'agent_hash':digest(agent),
-               'usage':response.get('usage'),'latency_ms':response['latency_ms'],'cost_usd':estimate_cost(response.get('usage'),self.pricing['llm']),
+               'usage':response.get('usage'),'latency_ms':response['latency_ms'],'cost_usd':estimate_cost(response.get('usage'),self.pricing.get('agent',self.pricing['llm'])),
                'reference_provenance':'Fixture-backed authored scenario contracts; no human quality labels',
                'scenario_hash':digest(scenario_contracts())}
         with self.lock:
@@ -189,7 +190,7 @@ Do not penalize an agent for refusing tool actions outside its permissions.
             metadata,response=run_agent_case(case['input'],config)
             row={'case_id':case['id'],'input':case['input'],'expected_output':case['expected_output'],
                  'agent_output':metadata['recommendation'],'agent_metadata':metadata,'usage':response.get('usage'),
-                 'cost_usd':estimate_cost(response.get('usage'),self.pricing['llm']),
+                 'cost_usd':estimate_cost(response.get('usage'),self.pricing.get('agent',self.pricing['llm'])),
                  'trace':response.get('trace',[]),'turn_outputs':response.get('turn_outputs',[]),
                  'tool_state':response.get('tool_state'),'checks':check_execution(case,response),
                  'scenario_id':case.get('scenario_id')}
@@ -216,10 +217,10 @@ Do not penalize an agent for refusing tool actions outside its permissions.
                     'agent_run':{k:deepcopy(v) for k,v in agent_run.items() if k!='rows'},
                     'generation':{k:deepcopy(v) for k,v in suite.items() if k not in ('rubric','test_cases')},
                     'rows':[{**r,'judges':{}} for r in agent_run['rows']],'summary':{}}
-        comparison['evaluation_config']=evaluation_config(rubric, {'jev': 'jev-1.13.0', 'llm': agent['model']}, [
+        comparison['evaluation_config']=evaluation_config(rubric, {'jev': self.pricing['jev']['model'], 'llm': self.pricing['llm']['model']}, [
             {'path': 'context', 'description': 'Agent domain context', 'content': agent['knowledge']},
             {'path': 'rubric', 'description': 'Generated scoring dimensions and levels', 'content': rubric},
-            {'path': 'test_cases', 'description': 'Generated cases and execution checks', 'content': suite['test_cases']}])
+            {'path': 'test_cases', 'description': 'Generated cases and execution checks', 'content': suite['test_cases']}],llm_options=self.pricing['llm'])
         with self.lock:self.state['comparison']=comparison
         wall={'jev':0.0,'llm':0.0};total=len(comparison['rows'])*2;count=0
         # Alternate backend order by case to reduce consistent first/second bias.
@@ -227,9 +228,9 @@ Do not penalize an agent for refusing tool actions outside its permissions.
             state={'input':row['input'],'context':agent['knowledge'],'agent_output':row['agent_output'],'expected_output':row['expected_output'],
                    'tool_trace':row.get('trace',[]),'session_outputs':row.get('turn_outputs',[]),
                    'independent_checks':row.get('checks',[]),'final_tool_state':row.get('tool_state')}
-            row['judge_requests']=judge_requests(state,rubric,{'jev':'jev-1.13.0','llm':agent['model']})
+            row['judge_requests']=judge_requests(state,rubric,{'jev':self.pricing['jev']['model'],'llm':self.pricing['llm']['model']},llm_options=self.pricing['llm'])
             for backend in (('jev','llm') if i%2==0 else ('llm','jev')):
-                model='jev-1.13.0' if backend=='jev' else agent['model']
+                model=self.pricing[backend]['model']
                 self.update_job('compare',f"{backend.upper()} evaluating {row['case_id']}…",count,total)
                 start=time.perf_counter()
                 if row['agent_metadata'].get('error'):
@@ -237,6 +238,8 @@ Do not penalize an agent for refusing tool actions outside its permissions.
                            'usage':{'input_tokens':0,'output_tokens':0}}
                 elif backend=='jev':
                     judge=evaluate_jev(deepcopy(state),deepcopy(rubric),model_id=model,max_attempts=1)
+                elif self.pricing['llm'].get('provider')=='bedrock':
+                    judge=evaluate_bedrock(deepcopy(state),deepcopy(rubric),model_id=model,region=self.pricing['llm']['region'],max_tokens=self.pricing['llm'].get('max_tokens',8192),effort=self.pricing['llm'].get('effort','high'))
                 else: judge=evaluate_llm(deepcopy(state),deepcopy(rubric),model_id=model)
                 wall[backend]+=(time.perf_counter()-start)*1000
                 judge['cost_usd']=estimate_cost(judge.get('usage'),self.pricing[backend])
@@ -278,7 +281,7 @@ Do not penalize an agent for refusing tool actions outside its permissions.
                 'input_tokens':tokens('input_tokens'),'output_tokens':tokens('output_tokens'),
                 'weighted_score':statistics.mean(j['weighted_score'] for j in valid) if valid else None,
                 'pass_rate':sum(j['passed'] for j in valid)/n if n else None,
-                'model':'jev-1.13.0' if backend=='jev' else self.state['agent']['model']}
+                'model':comparison['pricing'][backend]['model']}
         complete=all(result[b]['n_completed']==n and result[b]['n_failed']==0 for b in ['jev','llm'])
         j,l=result['jev'],result['llm']
         result['speedup']=(l['wall_ms']/j['wall_ms']) if complete and j['wall_ms'] else None

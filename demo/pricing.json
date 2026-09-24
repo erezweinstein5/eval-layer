@@ -8,6 +8,23 @@
     "note": "Public list-price estimate; output tokens are free."
   },
   "llm": {
+    "model": "us.anthropic.claude-opus-5-5",
+    "provider": "bedrock",
+    "region": "us-east-1",
+    "effort": "high",
+    "max_tokens": 8192,
+    "input_usd_per_million": 4.4,
+    "output_usd_per_million": 22,
+    "cached_input_usd_per_million": 0.22,
+    "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/20260922164418/us-east-1/index.json",
+    "verified_at": "2026-09-24",
+    "tier": "standard",
+    "input_sku": "J9QFZT8WAQABG9ZX",
+    "output_sku": "FCRGDQ596BG7EQKH",
+    "cache_read_sku": "E5RCDXA3KP96TBAZ",
+    "note": "AWS US geo standard list-price estimate. Agent and generation keep their separate GPT-OSS rates. Cache-write usage, if reported, makes the estimate unavailable."
+  },
+  "agent": {
     "model": "openai.gpt-oss-120b",
     "input_usd_per_million": 0.15,
     "output_usd_per_million": 0.6,

@@ -23,7 +23,8 @@ into the server process's environment through your existing credential setup:
 
 | Variable | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | Existing bearer credential for the AWS Bedrock Mantle endpoint below; used for generation, the agent, and the LLM judge |
+| `OPENAI_API_KEY` | Existing bearer credential for the AWS Bedrock Mantle endpoint below; used for generation and the agent |
+| `AWS_BEARER_TOKEN_BEDROCK` | Bedrock Runtime credential for the Opus 5.5 LLM judge (or use the SDK AWS credential chain) |
 | `TYPESAFE_API_KEY` | TypeSafe credential for the Jev judge |
 
 Keep credentials in the environment, outside the source, agent instructions,
@@ -31,6 +32,7 @@ and support knowledge. The setup below reuses `OPENAI_API_KEY`; it does not
 replace it or require an OpenAI-hosted endpoint.
 
 ```bash
+python3 -m pip install 'anthropic[bedrock]'
 export OPENAI_BASE_URL='https://bedrock-mantle.us-east-2.api.aws/v1'
 export DEMO_LLM_MODEL='openai.gpt-oss-120b'
 python3 demo/server.py --port 8771
@@ -41,9 +43,11 @@ Open `http://127.0.0.1:8771`. The server binds to localhost. Its default port is
 `DEMO_LLM_MODEL` or `--model` can select another model. Set `OPENAI_BASE_URL`
 explicitly for this AWS setup.
 
+The LLM judge uses `us.anthropic.claude-opus-5-5` through Bedrock Runtime in `us-east-1`, with high effort and an 8,192-token output limit. Generation and the agent keep their separate GPT-OSS model. The Configuration tab shows the exact judge prompts, model, region, effort, and per-case SDK request parameters.
+
 The server loads [pricing.json](pricing.json), which records the verified
 list-price rates, sources, model IDs, and verification date. If you change the
-model or pricing assumptions, update that file accordingly. An existing data
+model or pricing assumptions, update the corresponding `agent` or `llm` entry in that file. Cache reads use the pinned rate; a run with cache-write usage shows an unknown cost rather than pricing writes as ordinary input. An existing data
 directory restores the saved agent configuration, including its model; use a
 fresh `--data-dir` when testing a different model.
 
@@ -168,8 +172,9 @@ as such. The report includes the supplied policy, prompts, and agent outputs.
 ## Interpreting the comparison
 
 - This is a **10-case benchmark of one support agent**, not a broad model
-  leaderboard. The same configured LLM generates the suite, runs the agent,
-  and acts as the LLM judge, so these roles are not independent.
+  leaderboard. Generation and the subject share GPT-OSS. The LLM judge uses
+  Opus 5.5; both judges see the same saved subject outputs. Generation and the
+  subject are not independent.
 - Expected behavior comes from **authored scenario contracts backed by
   synthetic local fixtures**. These are not human quality labels or calibrated
   rubric scores. Older runs may retain generated reference answers; their

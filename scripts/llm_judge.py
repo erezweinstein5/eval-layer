@@ -453,6 +453,9 @@ def estimate_cost(usage, pricing) -> float | None:
     """
     if not isinstance(usage, dict) or not isinstance(pricing, dict):
         return None
+    # Cache writes have distinct TTL-specific prices; never silently price them as normal input.
+    if usage.get("cache_creation_input_tokens", 0) != 0:
+        return None
     input_count, output_count = usage.get("input_tokens"), usage.get("output_tokens")
     input_rate, output_rate = (pricing.get("input_usd_per_million"),
                                pricing.get("output_usd_per_million"))

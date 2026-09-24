@@ -134,6 +134,25 @@ class WorkbenchTests(unittest.TestCase):
         }
         self.app = server.Workbench(self.directory, deepcopy(self.pricing), MODEL)
 
+    def test_bedrock_judge_is_independent_of_agent_and_generation(self):
+        self.work("generate")
+        self.work("run-agent")
+        saved_rows = deepcopy(self.app.state['agent_run']['rows'])
+        self.app.pricing['agent'] = deepcopy(self.app.pricing['llm'])
+        self.app.pricing['llm'].update(model='us.anthropic.claude-opus-5-5', provider='bedrock', region='us-east-1', effort='high')
+        with patch.object(server, 'evaluate_bedrock', side_effect=self.make_judge('llm')) as judge:
+            self.work('compare')
+        self.assertEqual(judge.call_count, 10)
+        self.judges['llm'].assert_not_called()
+        self.assertEqual(self.app.state['agent']['model'], MODEL)
+        self.assertEqual(self.app.state['agent_run']['rows'], saved_rows)
+        comparison = self.app.state['comparison']
+        self.assertEqual(comparison['summary']['llm']['model'], 'us.anthropic.claude-opus-5-5')
+        request = comparison['rows'][0]['judge_requests']['llm']
+        self.assertIn('system', request)
+        self.assertNotIn('temperature', request)
+        self.assertEqual(comparison['evaluation_config']['backends']['llm']['parameters']['region'], 'us-east-1')
+
     def make_judge(self, backend):
         def evaluate(state, rubric, **kwargs):
             self.observed_judges.append(
