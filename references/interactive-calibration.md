@@ -179,6 +179,21 @@ The `reference_metadata` block makes it possible to:
 
 ---
 
+## Exact-output references for judge comparisons
+
+When these human grades will be used by the Jev replay tool, record
+`reference_metadata.graded_output_sha256` and
+`reference_metadata.graded_rubric_sha256` **at grading time**. Use
+`agent_output_sha256(saved_row["agent_output"])` and `rubric_sha256(rubric)` from
+[scripts/rejudge.py](../scripts/rejudge.py). Copy the human scores and metadata
+into the corresponding saved result row.
+
+The hashes bind the grades to the full saved output and rubric. Do not add
+matching hashes to old grades unless you have verified what was actually graded.
+Case IDs or the `expected_output` sketch alone cannot establish this match.
+References without matching provenance remain visible but are excluded from
+human-agreement metrics. See [jev.md](jev.md).
+
 ## Anti-patterns
 
 1. **The assistant grades on the user's behalf.** Defeats the purpose. Ask; don't assume.

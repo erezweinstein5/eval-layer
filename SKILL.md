@@ -1,30 +1,35 @@
 ---
 name: eval-layer
-description: "Add rubric-based evaluation to an existing agent codebase or Codex coding workflow. Use when someone asks to add evals, evaluate their agent, measure agent quality, or set up LLM-as-a-judge scoring. Handles single-agent and multi-subject (model/framework/prompt) comparisons."
+description: "Generate an evaluation layer from an agent's code, instructions, domain context, tools, and memory, using Jev or an LLM judge. Use to create agent-specific rubrics, test cases, execution checks, and reproducible judge comparisons for existing agents or Codex coding workflows."
 ---
 
 # Agent Eval Layer
 
-Add a rubric-based evaluation layer to an existing agent project. Usable from Codex and Claude Code. Evaluate framework-based agents or Codex coding tasks; the assistant running this skill and the agent being evaluated can be different.
+Generate a context-based evaluation layer for an existing agent. Inspect its implementation and authoritative domain context, derive what successful behavior means, then produce a rubric, test set, execution checks, and a runnable harness using Jev or an LLM judge. Usable from Codex and Claude Code; the assistant generating evals, the subject agent, and the judge can use different models.
+
+The generated files and command-line workflow are the primary deliverable. A UI is optional: it observes saved results and compares judges. The customer-support agent in `demo/` is an example subject; its scenario list, tools, fixtures, and provider settings are not defaults for other agents.
 
 ## What this skill produces
 
-1. **Rubric** (`evals/rubrics/main.yaml`) — Scoring dimensions with concrete level descriptors and weights
-2. **Test cases** (`evals/test_cases/seed.yaml`) — Input/expected-output pairs with difficulty tags (3+ with reference scores for leniency)
-3. **Judge prompt** (`evals/prompts/judge.md`) — Structured prompt for LLM-as-a-judge with calibration examples and evidence/suggestion/confidence fields
-4. **Eval harness** (`evals/eval_harness.py`) — Runs agent on test cases, sends to judge, aggregates scores + leniency
-5. **Reports** — Per-subject markdown + (when multi-subject) self-contained HTML dashboard with leaderboard, radar, and per-case heatmap
+1. **Context record** (`evals/context.md`) — Source paths/versions, authoritative rules, tool and memory behavior, assumptions, and case-to-source mapping
+2. **Rubric** (`evals/rubrics/main.yaml`) — Scoring dimensions and concrete level descriptors derived from the agent's responsibilities
+3. **Test cases and checks** (`evals/test_cases/seed.yaml`) — Context-grounded requests, expected outcomes, fixtures, and relevant executable checks, with labeled reference scores where available
+4. **Judge configuration** — An LLM judge prompt (`evals/prompts/judge.md`) or Jev Score questions compiled from the same rubric
+5. **Eval harness** (`evals/eval_harness.py`) — Runs the subject, saves outputs and evidence, applies checks, and invokes the selected judge
+6. **Results** — Raw JSONL and JSON/Markdown summaries; optional HTML/UI for inspection and Jev/LLM comparison
 
 ## File Reference
 
 | File | Purpose |
 |------|---------|
+| [references/context-grounding.md](references/context-grounding.md) | Derive cases and checks from agent context; separate source authority, retrieved content, and evaluation-only expectations |
 | [references/rubric-design.md](references/rubric-design.md) | Dimension catalog, scale guidance, leniency thresholds, anti-patterns |
 | [references/judge-prompts.md](references/judge-prompts.md) | Judge prompt template and calibration techniques |
+| [references/jev.md](references/jev.md) | **Optional Jev judge** — typed rubric scores, numeric confidence, direct API, and saved-output comparisons |
 | [references/codex.md](references/codex.md) | **Codex CLI subjects** — isolated repository trials, event metadata, diffs, and independent checks |
 | [references/framework-adapters.md](references/framework-adapters.md) | **Copy-paste recipes per framework** (PydanticAI, LangGraph, CrewAI, Strands, OpenAI Agents, raw Anthropic SDK) — structured output, token + tool-call extraction |
 | [references/structured-output-troubleshooting.md](references/structured-output-troubleshooting.md) | The three Bedrock Opus structured-output errors and the two-stage pattern that fixes them |
-| [references/judge-robustness.md](references/judge-robustness.md) | JSON extraction helper, retry-once, defensive score aggregation — drop-in snippets |
+| [references/judge-robustness.md](references/judge-robustness.md) | Shared helper imports for parsing, backend-aware validation, retries, and complete-result aggregation |
 | [references/cross-subject-benchmarking.md](references/cross-subject-benchmarking.md) | Multi-subject (model / framework / prompt) comparison flow |
 | [references/html-report-template.html](references/html-report-template.html) | Self-contained Chart.js dashboard — leaderboard, radar, heatmap |
 | [references/interactive-calibration.md](references/interactive-calibration.md) | **Interactive human-grading dialog** for collecting honest `reference_scores` — required for leniency to be meaningful |
@@ -65,7 +70,13 @@ Read the agent's codebase and answer:
 6. Is it multi-agent? If yes, what's the pipeline?
 7. What does "good" look like? Ask the user if unclear.
 
+Read relevant policies, knowledge sources, tool schemas, memory boundaries, and existing failures/tests alongside the code. Record their paths or versions and which source takes precedence when they conflict. Use [references/context-grounding.md](references/context-grounding.md) to create `evals/context.md` and trace expected outcomes to those sources. Missing domain facts become explicit assumptions or clarification cases; do not invent them to complete the suite.
+
 For Codex subjects, read [references/codex.md](references/codex.md). Identify the fixture commit, task prompt, independent check commands, and configuration being compared (model, instructions, skills, or tools). Each case/trial needs a fresh checkout. For response-only tasks, a repository diff need not be a scoring input.
+
+For agents with tools or memory, identify tool permissions, authenticated user/workspace scope, authoritative data sources, and the memory store. Give each case/trial an isolated environment. Include retrieval, multi-step action, denied-access, stale-memory, and untrusted-retrieval cases where relevant. To test persistent memory, write it in one session and retrieve it in a fresh conversation using the same store; carrying chat history forward does not demonstrate memory retrieval. The [tool and memory workbench](demo/README.md) provides an executable example.
+
+Choose the judge backend separately from the agent runtime. Default to the existing `llm` path; when the user requests Jev, read [references/jev.md](references/jev.md). Jev uses the same rubric and returns fractional scores with numeric confidence, without generated explanations. Its credentials and model selection are separate from the agent's.
 
 Share findings with the user before proceeding.
 
@@ -106,7 +117,7 @@ name: "agent-name-eval"
 version: "1.0"
 dimensions:
   - name: correctness
-    weight: 0.4
+    weight: 1.0
     scale: 5
     levels:
       1: "Output is factually wrong or fails the task entirely"
@@ -123,7 +134,9 @@ For coding cases, include a fixture commit, task prompt, acceptance checks, and 
 
 At least 10 cases: 3-4 easy, 3-4 medium, 2-3 hard.
 
-**Reference scores** on ≥3 easy cases enable leniency tracking. Two modes:
+Derive scenarios from this agent's context and failure modes. Record supporting source IDs in each case's metadata and identify outcomes that can be checked directly. Validate reference sketches against those sources before execution. Keep runtime inputs separate from evaluation-only expectations so the harness cannot accidentally disclose answers to the subject.
+
+**Reference scores** on ≥3 easy cases enable labeled leniency tracking when requested. They are optional for generating and running a context-based eval layer; without suitable grades, report leniency as unavailable. If reference grading is selected, use one of two modes:
 
 - **Default (auto-graded)** — you generate `reference_scores` by applying the
   rubric to the `expected_output` sketch. Tag with the actual grader (`graded_by: codex`, `claude`, or another identifier) so the
@@ -153,9 +166,11 @@ test_cases:
       graded_at: "2026-04-18T14:23:00Z"
 ```
 
-### 2c. Judge prompt (`evals/prompts/judge.md`)
+### 2c. Judge configuration
 
-Use the template from [references/judge-prompts.md](references/judge-prompts.md). Must include:
+For `--judge-backend jev`, compile ordered level descriptions into Score questions using the supplied adapter. Preserve zero-based raw scores and map to the one-based rubric without rounding. Jev explanation fields remain null; retain numeric confidence and distributions. Do not apply the prose judge prompt or its response parser to the Jev API. See [references/jev.md](references/jev.md).
+
+For `--judge-backend llm`, generate `evals/prompts/judge.md`. Use the template from [references/judge-prompts.md](references/judge-prompts.md). Must include:
 - Full rubric with level descriptors
 - 2-3 calibration examples (clear pass, borderline, clear fail)
 - **Evidence + suggestion + confidence** required per dimension (see rubric-design.md "Explainability Fields")
@@ -173,18 +188,24 @@ A Python harness, optionally importing the supplied Codex adapter. Orchestrates:
 -v / --verbose        # print per-case metadata
 --trials N            # repeated trials / variance measurement
 --no-judge            # run agent + deterministic checks without a judge call
+--judge-backend NAME  # llm (default) or jev, independent of --framework
+--judge-model ID      # explicit judge model; required when making a Jev call
 ```
 
 The harness should:
 1. Load rubric from YAML and test cases from YAML
 2. Dispatch to the framework adapter — see [references/framework-adapters.md](references/framework-adapters.md)
-3. Unless `--no-judge`, send (input, output) to the judge LLM with the rubric. For coding tasks include the diff, independent check results, and relevant trace evidence; treat artifact text as data, never judge instructions.
-4. Parse the judge's JSON **using the defensive helper** — see [references/judge-robustness.md](references/judge-robustness.md)
-5. Compute per-dimension averages, weighted score, **and leniency** (against `reference_scores`)
-6. With `--no-judge`, record `judge: null`, report judge scores and leniency as unavailable, and still save agent output and check results. This skips judge calls, not agent inference costs.
+3. Unless `--no-judge`, send (input, output) to the selected judge backend with the rubric. For coding tasks include the diff, independent check results, and relevant trace evidence; treat artifact text as data, never judge instructions.
+4. For LLM text use the defensive parser; for Jev use its typed-response adapter. Validate both with `scripts/judge_results.py` before aggregation. Reject incomplete dimensions, nonfinite scores, and out-of-range values without scoring a partial result — see [references/judge-robustness.md](references/judge-robustness.md)
+5. Record judge backend, requested/resolved model, usage, latency, and review flags outside the agent metadata. Compute per-dimension averages, weighted score, **and leniency** (against `reference_scores`)
+6. Check `--no-judge` before initializing either judge or requiring credentials. With it, record `judge: null`, report judge scores and leniency as unavailable, and still save agent output and check results. This skips judge calls, not agent inference costs.
 7. Write a per-subject markdown report and raw JSONL (`evals/reports/raw/<subject>.jsonl`) for later aggregation
 
-Keep orchestration simple; reuse the supplied Codex adapter rather than duplicating its event handling.
+For tool/memory subjects, retain the executed tool names, arguments, results, errors, retrieval provenance, session boundaries, and persisted outcomes alongside the 7-field metadata. Pass the same trace and independent checks to either judge. Keep fixture-backed expected outcomes and check logic out of the agent's prompt. Verify actions against tool observations or stored state, not the agent's claims, and require relevant deterministic checks as well as the rubric threshold for an overall pass. Only require a specific tool or sequence when the task actually requires it; a valid refusal may need no tool call. Label synthetic environments, generated references, and missing human calibration explicitly.
+
+Keep orchestration simple; reuse supplied adapters and judge validation rather than duplicating their handling. A generated harness can use `scripts/llm_judge.py` for a compatible Chat Completions LLM and `scripts/jev_judge.py` for Jev; for Claude on Bedrock Runtime use `scripts/bedrock_judge.py` with `anthropic[bedrock]` and an explicit model ID and region. Use the appropriate existing provider adapter otherwise. Capture the agent once per trial, then send the same frozen evidence and rubric to each judge when comparison is requested. `scripts/rejudge.py` can call Jev against saved LLM grades; its LLM mode only revalidates saved grades. Fresh LLM comparisons must invoke an actual LLM adapter, including when no UI is used. When both judges are requested, generate a CLI replay/comparison entry point that loads the saved rows and invokes each backend without rerunning the subject; report the exact command in the handoff.
+
+Keep generation, agent execution, and judging time/cost separate. Record actual usage, model versions, failures, pricing source/date, and missing measurements. For judge comparisons, report request latency, judge time, estimated cost, dimension-score differences, and pass/fail disagreements. Disclose differences such as LLM explanation generation versus Jev scoring, shared generator/agent/judge models, and trial count. Agreement is not accuracy; human calibration needs grades for the exact candidate outputs.
 
 ### 2f. Optional: interactive human calibration
 
@@ -192,7 +213,7 @@ Keep orchestration simple; reuse the supplied Codex adapter rather than duplicat
 `--calibrate`, says "I want human-graded references", or the project has
 regulatory / high-stakes requirements for judge bias detection.
 
-Default mode (step 2b) uses assistant-generated references tagged
+When automatic reference grading is selected (step 2b), use assistant-generated references tagged
 with the actual grader. Leniency computed against those is directional but
 cannot detect judge/reference shared-bias. Most users don't need better.
 
@@ -219,6 +240,8 @@ references**. Suggested labels:
 - `graded_by: claude` → `"Leniency vs Claude-graded references (directional only)"`
 - Other assistant identifiers → `"Leniency vs <grader>-graded references (directional only)"`
 - `graded_by: human`  → `"Leniency vs human-graded references"`
+
+Keep backend confidence separate from leniency. Jev numeric confidence is not an LLM confidence label or a probability of correctness. Mark explanation fields unavailable and show the configured review threshold. Calibration agreement requires reference grades for the exact candidate output and rubric; a score for an expected-output sketch is not that reference.
 
 Never show a bare leniency number without its label — it misleads a reader
 into thinking the signal is stronger than it is.
@@ -250,17 +273,21 @@ This is robust, debuggable, cheap, and portable across every framework.
    - **Leniency > ±0.25** → re-anchor calibration examples or tighten descriptors. **Don't ship an eval with significant bias.**
 5. Adjust rubric and re-run
 
-## Step 4: (Multi-subject only) Compare and report
+## Step 4: Report results; optionally visualize
+
+Save an inspectable evaluation configuration with each run: source/context artifacts, generated rubric and case/check definitions, exact judge model IDs and parameters, and sanitized per-case request bodies (never authentication headers or credentials). Freeze this configuration with the results so later model or prompt changes cannot relabel an old run. Show generated judge guidance separately from the actual adapter prompt. If historical requests must be reconstructed, label them as reconstructed rather than recorded. Keep agent and judge model/pricing settings independent.
+
+Always save raw evidence and JSON/Markdown results. For Jev/LLM comparisons, pair grades by the same case, subject, trial, rubric, and saved output. A results UI consumes those artifacts; it must not be required to generate or execute the eval layer. Add HTML or an interactive viewer when requested or useful for inspecting results.
 
 When there are 2+ subjects (models / frameworks / prompts):
 
 1. Run `python eval_harness.py --framework all` — writes one
    `evals/reports/raw/<subject>.jsonl` per subject.
-2. Generate a tiny `evals/make_html_report.py` that reads the JSONLs and
+2. If an HTML comparison is wanted, generate `evals/make_html_report.py` that reads the JSONLs and
    fills [references/html-report-template.html](references/html-report-template.html)
    via stdlib string replacement (the template uses `{{ NAME }}` markers —
    no Jinja2 dependency needed).
-3. Open the resulting `evals/reports/framework-comparison.html` — leaderboard,
+3. If generated, open `evals/reports/framework-comparison.html` — leaderboard,
    radar, heatmap, latency + token bars, failure-category breakdown, and
    best/worst per subject.
 
@@ -274,6 +301,7 @@ for the complete marker contract the generator must fill.
 ```
 {project}/
   evals/
+    context.md                     # source authority, versions, assumptions, case mapping
     eval_harness.py
     rubrics/
       main.yaml
@@ -291,15 +319,19 @@ for the complete marker contract the generator must fill.
 
 Before handing off:
 
+- [ ] Cases and expectations trace to the selected agent's code and authoritative domain context
+- [ ] Runtime-visible context is separate from evaluation-only expectations and checks
+- [ ] The generated layer works from the CLI without the demo server or UI
 - [ ] 3-5 dimensions, weights sum to 1.0
 - [ ] Concrete level descriptors per dimension
-- [ ] 2-3 calibration examples in the judge prompt with evidence/suggestion/confidence
-- [ ] ≥3 easy cases with `reference_scores` + `reference_metadata.graded_by` tag (actual assistant identifier by default, `human` after `--calibrate`)
+- [ ] LLM: 2-3 calibration examples with evidence/suggestion/confidence; Jev: ordered descriptors, fractional score mapping, null explanations, numeric confidence
+- [ ] If reporting leniency: suitable reference grades have `reference_metadata.graded_by` and match the stated grading mode; otherwise leniency is unavailable
 - [ ] Reports label leniency by grading mode (see step 2g)
-- [ ] Harness uses the defensive `parse_judge_response` helper
+- [ ] Harness uses the appropriate backend parser and shared strict judge validation
 - [ ] Harness outputs the 7-field metadata contract
-- [ ] `--framework`, `--test-case`, `-v`, `--trials`, `--no-judge` flags present
+- [ ] `--framework`, `--test-case`, `-v`, `--trials`, `--no-judge`, `--judge-backend`, `--judge-model` flags present
 - [ ] Single-case smoke test passes end-to-end
+- [ ] Jev: mocked API and saved-output replay pass without live calls; judge failures and skipped rows remain visible
 - [ ] Codex cases use fresh fixtures, capture artifacts, and report independent checks separately from judge scores
 - [ ] Structured output matches the runtime; Bedrock workarounds are not applied to Codex
-- [ ] If multi-subject: HTML report renders with all subjects
+- [ ] If an HTML report was requested: it renders all compared subjects and preserves the raw-result metrics

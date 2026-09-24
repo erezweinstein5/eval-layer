@@ -19,7 +19,12 @@
 
     PROJECT_NAME      str   — e.g. "fresh-seo-agent"
     MODEL_ID          str   — the agent's model id
-    JUDGE_MODEL_ID    str   — the judge's model id
+    JUDGE_MODEL_ID    str   — requested and resolved judge model IDs (escaped)
+    JUDGE_SUMMARY_HTML html — backend, judge-only latency/usage, failure/skip counts,
+                              confidence review flags and threshold; Jev explanations
+                              unavailable. Escape all data; never mix numeric Jev
+                              confidence with LLM labels. Use "Not recorded" for
+                              older rows lacking judge metadata.
     TIMESTAMP         str   — ISO8601, UTC
     N_CASES           int   — total test cases per subject
     N_SUBJECTS        int   — number of subjects benchmarked
@@ -117,6 +122,11 @@
     · Cases: {{ N_CASES }}
     · Estimated cost: {{ TOTAL_COST_USD }}
   </div>
+
+  <section aria-label="Judge details">
+    <h2>Judge details</h2>
+    {{ JUDGE_SUMMARY_HTML }}
+  </section>
 
   <h2>Leaderboard</h2>
   <table>
