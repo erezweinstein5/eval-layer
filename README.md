@@ -20,10 +20,39 @@ The **UI is optional**. It helps inspect execution traces and compare saved judg
 
 ## Installation
 
+### Give this to your agent
+
+Copy this into **Codex or Claude Code**:
+
+```text
+Install the eval-layer skill from https://github.com/erezweinstein5/eval-layer
+using the latest main branch.
+
+Use the directory for the agent you are running in:
+- Codex: ~/.agents/skills/eval-layer
+- Claude Code: ~/.claude/skills/eval-layer
+
+Read the repository README and install the complete repository, including
+SKILL.md, references/, and scripts/. If an installation already exists, inspect
+its remote, branch, and local changes first. Only update a clean checkout of
+this repository on main with a fast-forward pull; otherwise explain what
+needs resolving without overwriting files or switching branches.
+
+Verify the skill name is eval-layer and scripts/jev_judge.py is present.
+Report the installed path, commit, and how to invoke the skill. Installation
+needs no API keys and should not run an evaluation or make model calls.
+```
+
+Then give it a task: `$eval-layer Add evals to /path/to/agent using Jev` in
+Codex, or `/eval-layer Add evals to /path/to/agent using Jev` in Claude Code.
+The Jev key is configured separately when you are ready to run evaluations.
+
+### Manual installation
+
 For **Codex**, clone into your user skills directory:
 
 ```bash
-git clone <repo-url> ~/.agents/skills/eval-layer
+git clone https://github.com/erezweinstein5/eval-layer.git ~/.agents/skills/eval-layer
 ```
 
 Then invoke it in Codex:
@@ -37,7 +66,7 @@ For a team installation, place the folder at `.agents/skills/eval-layer` in your
 For **Claude Code**:
 
 ```bash
-git clone <repo-url> ~/.claude/skills/eval-layer
+git clone https://github.com/erezweinstein5/eval-layer.git ~/.claude/skills/eval-layer
 ```
 
 Then invoke `/eval-layer Add an eval layer to /path/to/your/agent`.
